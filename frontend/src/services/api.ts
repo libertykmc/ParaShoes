@@ -11,6 +11,13 @@ export type User = {
   avatar: string | null;
 };
 
+export type Product = {
+  id: string;
+  name: string;
+  image?: string | null;
+  price?: number | string;
+};
+
 export const api = {
   async login(email: string, password: string): Promise<LoginResponse> {
     const response = await fetch(`${API_URL}/auth/login`, {
@@ -72,6 +79,36 @@ export const api = {
 
     if (!response.ok) {
       throw new Error("Ошибка обновления аватара");
+    }
+
+    return response.json();
+  },
+
+  async getProducts(): Promise<Product[]> {
+    const response = await fetch(`${API_URL}/products`);
+    if (!response.ok) {
+      throw new Error("Не удалось загрузить товары");
+    }
+    return response.json();
+  },
+
+  async updateProductImage(
+    token: string,
+    productId: string,
+    image: string
+  ): Promise<Product> {
+    const response = await fetch(`${API_URL}/products/${productId}/image`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ image }),
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || "Не удалось обновить картинку товара");
     }
 
     return response.json();

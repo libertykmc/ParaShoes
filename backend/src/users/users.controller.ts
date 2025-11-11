@@ -17,7 +17,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard'
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  // 🔒 Получить собственный профиль
+
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @Get('me')
@@ -34,7 +34,7 @@ export class UsersController {
     }
   }
 
-  // 🔒 Обновить аватар текущего пользователя
+
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @Patch('me/avatar')
@@ -53,7 +53,7 @@ export class UsersController {
     }
   }
 
-  // 🌍 Публичный запрос на получение пользователя по UUID
+
   @Get(':id')
   @ApiParam({ name: 'id', type: String, description: 'UUID пользователя' })
   @ApiOkResponse({ description: 'Пользователь найден' })

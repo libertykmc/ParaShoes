@@ -35,7 +35,7 @@ export class ProductsController {
     return this.productsService.findById(id)
   }
 
- 
+  // ✅ Теперь тело запроса описано через DTO
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @Post()
@@ -53,17 +53,6 @@ export class ProductsController {
     @Body() dto: UpdateProductDto,
   ) {
     return this.productsService.update(id, dto)
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @Patch(':id/image')
-  @ApiOkResponse({ type: Product, description: 'Updated product image URL' })
-  updateImage(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() dto: UpdateProductImageDto,
-  ) {
-    return this.productsService.update(id, { image: dto.image })
   }
 
   @UseGuards(JwtAuthGuard)

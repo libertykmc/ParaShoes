@@ -10,12 +10,12 @@ export class UsersService {
     private readonly usersRepo: Repository<User>,
   ) {}
 
-  // Поиск по email
+
   findByEmail(email: string) {
     return this.usersRepo.findOne({ where: { email } })
   }
 
-  // Поиск по id (uuid)
+
 async findById(id: string) {
   try {
     const user = await this.usersRepo.findOneBy({ id })
@@ -27,13 +27,13 @@ async findById(id: string) {
   }
 }
 
-  // Создание нового пользователя
+
   async create(user: Partial<User>) {
     const newUser = this.usersRepo.create(user)
     return this.usersRepo.save(newUser)
   }
 
-  // Обновление данных пользователя
+
   async update(id: string, data: Partial<User>) {
     await this.usersRepo.update(id, data)
     return this.findById(id)

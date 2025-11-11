@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Profile from "./pages/Profile";
+import Products from "./pages/Products";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -40,6 +41,14 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/products"
+        element={
+          <ProtectedRoute>
+            <Products />
+          </ProtectedRoute>
+        }
+      />
       <Route path="/" element={<Navigate to="/login" replace />} />
     </Routes>
   );
@@ -55,7 +64,7 @@ function App() {
   );
 }
 
-// Добавляем проверку для отладки
+
 console.log("App component loaded");
 
 export default App;

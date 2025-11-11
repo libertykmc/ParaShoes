@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import "./Profile.css";
+import "../styles/Profile.css";
 
 export default function Profile() {
   const { user, logout, updateAvatar, loading: authLoading } = useAuth();
@@ -61,6 +61,14 @@ export default function Profile() {
     <div className="profile-container">
       <div className="profile-card">
         <h1>Профиль пользователя</h1>
+        <div style={{ marginBottom: 20 }}>
+          <button
+            className="update-button"
+            onClick={() => navigate("/products")}
+          >
+            Товары
+          </button>
+        </div>
         <div className="profile-info">
           <div className="avatar-section">
             {user.avatar ? (
