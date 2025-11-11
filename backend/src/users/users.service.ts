@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { User } from './user.entity';
+import { Injectable, NotFoundException } from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm'
+import { Repository } from 'typeorm'
+import { User } from './user.entity'
 
 @Injectable()
 export class UsersService {
@@ -10,21 +10,32 @@ export class UsersService {
     private readonly usersRepo: Repository<User>,
   ) {}
 
+  // Поиск по email
   findByEmail(email: string) {
-    return this.usersRepo.findOne({ where: { email } });
+    return this.usersRepo.findOne({ where: { email } })
   }
 
-  findById(id: number) {
-    return this.usersRepo.findOne({ where: { id } });
+  // Поиск по id (uuid)
+async findById(id: string) {
+  try {
+    const user = await this.usersRepo.findOneBy({ id })
+    if (!user) throw new NotFoundException(`Пользователь с id ${id} не найден`)
+    return user
+  } catch (e) {
+    console.error('Ошибка при поиске пользователя:', e)
+    throw e
   }
+}
 
+  // Создание нового пользователя
   async create(user: Partial<User>) {
-    const newUser = this.usersRepo.create(user);
-    return this.usersRepo.save(newUser);
+    const newUser = this.usersRepo.create(user)
+    return this.usersRepo.save(newUser)
   }
 
-  async update(id: number, data: Partial<User>) {
-    await this.usersRepo.update(id, data);
-    return this.findById(id);
+  // Обновление данных пользователя
+  async update(id: string, data: Partial<User>) {
+    await this.usersRepo.update(id, data)
+    return this.findById(id)
   }
 }

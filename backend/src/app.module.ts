@@ -4,22 +4,25 @@ import { ConfigModule } from '@nestjs/config';
 import { User } from './users/user.entity';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
+import { ProductsModule } from './products/product.module';
+import { Product } from './products/product.entity';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRoot({
       type: 'postgres',
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT || '5432', 10),
-      username: process.env.DB_USER || 'postgres',
-      password: process.env.DB_PASS || '1',
-      database: process.env.DB_NAME || 'parashoes',
-      entities: [User],
+      host: 'localhost',
+      port: parseInt('5432'),
+      username:  'postgres',
+      password: '543637',
+      database: 'parashoes',
+      entities: [User, Product],
       synchronize: true,
     }),
     UsersModule,
     AuthModule,
+    ProductsModule
   ],
 })
 export class AppModule {}
