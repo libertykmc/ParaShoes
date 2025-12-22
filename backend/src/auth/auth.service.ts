@@ -4,6 +4,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common'
 import { UsersService } from '../users/users.service'
+import { UserRole } from '../users/user.entity'
 import * as bcrypt from 'bcrypt'
 import { JwtService } from '@nestjs/jwt'
 
@@ -14,17 +15,32 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async register(email: string, password: string) {
+  async register(
+    username: string,
+    email: string,
+    password: string,
+    phone?: string,
+    address?: string,
+  ) {
     const exists = await this.usersService.findByEmail(email)
     if (exists) {
       throw new BadRequestException('Пользователь с таким email уже существует')
     }
 
+    const existsUsername = await this.usersService.findByUsername(username)
+    if (existsUsername) {
+      throw new BadRequestException('Пользователь с таким именем уже существует')
+    }
+
     const hash = await bcrypt.hash(password, 10)
     const user = await this.usersService.create({
+      username,
       email,
       password: hash,
-      role: 'user',
+      phone,
+      address,
+      role: UserRole.USER,
+      bonusPoints: 0,
     })
 
     return this.buildToken(user)

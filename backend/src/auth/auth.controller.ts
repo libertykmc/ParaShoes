@@ -12,7 +12,13 @@ export class AuthController {
   @Post('register')
   @ApiCreatedResponse({ description: 'Пользователь зарегистрирован' })
   register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto.email, dto.password)
+    return this.authService.register(
+      dto.username,
+      dto.email,
+      dto.password,
+      dto.phone,
+      dto.address,
+    )
   }
 
   @Post('login')
