@@ -1,13 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { Product } from './product.entity'
+import { CategoriesService } from '../categories/category.service'
 
 @Injectable()
 export class ProductsService {
   constructor(
     @InjectRepository(Product)
     private readonly productsRepo: Repository<Product>,
+    private readonly categoriesService: CategoriesService,
   ) {}
 
   async findAll(): Promise<Product[]> {
@@ -24,11 +26,39 @@ export class ProductsService {
   }
 
   async create(data: Partial<Product>): Promise<Product> {
+    // Проверяем существование категории, если categoryId передан
+    if (data.categoryId) {
+      try {
+        await this.categoriesService.findById(data.categoryId)
+      } catch (error) {
+        if (error instanceof NotFoundException) {
+          throw new BadRequestException(
+            `Категория с id ${data.categoryId} не найдена. Сначала создайте категорию.`
+          )
+        }
+        throw error
+      }
+    }
+
     const newProduct = this.productsRepo.create(data)
     return this.productsRepo.save(newProduct)
   }
 
   async update(id: string, data: Partial<Product>): Promise<Product> {
+    // Проверяем существование категории, если categoryId передан
+    if (data.categoryId) {
+      try {
+        await this.categoriesService.findById(data.categoryId)
+      } catch (error) {
+        if (error instanceof NotFoundException) {
+          throw new BadRequestException(
+            `Категория с id ${data.categoryId} не найдена. Сначала создайте категорию.`
+          )
+        }
+        throw error
+      }
+    }
+
     const product = await this.findById(id)
     Object.assign(product, data)
     return this.productsRepo.save(product)

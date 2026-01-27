@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { HomePage } from './components/HomePage';
@@ -8,7 +8,8 @@ import { CartPage, CartItem } from './components/CartPage';
 import { CheckoutPage, OrderData } from './components/CheckoutPage';
 import { ProfilePage } from './components/ProfilePage';
 import { AdminPage } from './components/AdminPage';
-import { products, mockOrders, mockUser } from './data/products';
+import { mockOrders, mockUser } from './data/products';
+import { fetchProducts, FrontendProduct } from './api/api';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner@2.0.3';
 
@@ -19,6 +20,29 @@ export default function App() {
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [products, setProducts] = useState<FrontendProduct[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const fetchedProducts = await fetchProducts();
+        setProducts(fetchedProducts);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Не удалось загрузить товары';
+        setError(errorMessage);
+        toast.error('Ошибка загрузки товаров');
+        console.error('Error loading products:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProducts();
+  }, []);
 
   const handleNavigate = (page: string) => {
     setCurrentPage(page as Page);
@@ -122,106 +146,133 @@ export default function App() {
       />
 
       <main className="flex-1">
-        {currentPage === 'home' && (
-          <HomePage
-            products={products}
-            onNavigate={handleNavigate}
-            onAddToCart={handleAddToCart}
-            onToggleFavorite={handleToggleFavorite}
-            onViewProduct={handleViewProduct}
-            favorites={favorites}
-          />
-        )}
-
-        {currentPage === 'catalog' && (
-          <CatalogPage
-            products={products}
-            onAddToCart={handleAddToCart}
-            onToggleFavorite={handleToggleFavorite}
-            onViewProduct={handleViewProduct}
-            favorites={favorites}
-          />
-        )}
-
-        {currentPage === 'product' && selectedProduct && (
-          <ProductPage
-            product={selectedProduct}
-            relatedProducts={relatedProducts}
-            onAddToCart={handleAddToCart}
-            onToggleFavorite={handleToggleFavorite}
-            onViewProduct={handleViewProduct}
-            onBack={() => handleNavigate('catalog')}
-            isFavorite={favorites.has(selectedProduct.id)}
-            favorites={favorites}
-          />
-        )}
-
-        {currentPage === 'cart' && (
-          <CartPage
-            items={cartItems}
-            onUpdateQuantity={handleUpdateQuantity}
-            onRemoveItem={handleRemoveItem}
-            onCheckout={handleCheckout}
-            onContinueShopping={() => handleNavigate('catalog')}
-          />
-        )}
-
-        {currentPage === 'checkout' && (
-          <CheckoutPage
-            items={cartItems}
-            onBack={handleBackFromCheckout}
-            onConfirm={handleConfirmOrder}
-          />
-        )}
-
-        {currentPage === 'profile' && (
-          <ProfilePage
-            user={mockUser}
-            orders={mockOrders}
-          />
-        )}
-
-        {currentPage === 'admin' && (
-          <AdminPage
-            products={products}
-            orders={mockOrders}
-            users={[mockUser]}
-          />
-        )}
-
-        {currentPage === 'favorites' && (
-          <div className="min-h-screen bg-gray-50">
-            <div className="max-w-[1440px] mx-auto px-6 py-8">
-              <h1 className="text-gray-900 mb-8">Избранное</h1>
-              {favorites.size === 0 ? (
-                <div className="text-center py-16">
-                  <p className="text-gray-500 mb-4">Список избранного пуст</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {products
-                    .filter(p => favorites.has(p.id))
-                    .map(product => (
-                      <div key={product.id} className="bg-white rounded-xl p-4 border border-gray-200">
-                        <h3 className="text-gray-900 mb-2">{product.name}</h3>
-                        <p className="text-gray-600">{product.price.toLocaleString('ru-RU')} ₽</p>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {(currentPage === 'about' || currentPage === 'contacts') && (
+        {isLoading && (
           <div className="min-h-screen bg-gray-50 flex items-center justify-center">
             <div className="text-center">
-              <h1 className="text-gray-900 mb-4">
-                {currentPage === 'about' ? 'О нас' : 'Контакты'}
-              </h1>
-              <p className="text-gray-600">Эта страница в разработке</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+              <p className="text-gray-600">Загрузка товаров...</p>
             </div>
           </div>
+        )}
+
+        {error && !isLoading && (
+          <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="text-center">
+              <p className="text-red-600 mb-4">Ошибка: {error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+              >
+                Обновить страницу
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!isLoading && !error && (
+          <>
+            {currentPage === 'home' && (
+              <HomePage
+                products={products}
+                onNavigate={handleNavigate}
+                onAddToCart={handleAddToCart}
+                onToggleFavorite={handleToggleFavorite}
+                onViewProduct={handleViewProduct}
+                favorites={favorites}
+              />
+            )}
+
+            {currentPage === 'catalog' && (
+              <CatalogPage
+                products={products}
+                onAddToCart={handleAddToCart}
+                onToggleFavorite={handleToggleFavorite}
+                onViewProduct={handleViewProduct}
+                favorites={favorites}
+              />
+            )}
+
+            {currentPage === 'product' && selectedProduct && (
+              <ProductPage
+                product={selectedProduct}
+                relatedProducts={relatedProducts}
+                onAddToCart={handleAddToCart}
+                onToggleFavorite={handleToggleFavorite}
+                onViewProduct={handleViewProduct}
+                onBack={() => handleNavigate('catalog')}
+                isFavorite={favorites.has(selectedProduct.id)}
+                favorites={favorites}
+              />
+            )}
+
+            {currentPage === 'cart' && (
+              <CartPage
+                items={cartItems}
+                onUpdateQuantity={handleUpdateQuantity}
+                onRemoveItem={handleRemoveItem}
+                onCheckout={handleCheckout}
+                onContinueShopping={() => handleNavigate('catalog')}
+              />
+            )}
+
+            {currentPage === 'checkout' && (
+              <CheckoutPage
+                items={cartItems}
+                onBack={handleBackFromCheckout}
+                onConfirm={handleConfirmOrder}
+              />
+            )}
+
+            {currentPage === 'profile' && (
+              <ProfilePage
+                user={mockUser}
+                orders={mockOrders}
+              />
+            )}
+
+            {currentPage === 'admin' && (
+              <AdminPage
+                products={products}
+                orders={mockOrders}
+                users={[mockUser]}
+              />
+            )}
+
+            {currentPage === 'favorites' && (
+              <div className="min-h-screen bg-gray-50">
+                <div className="max-w-[1440px] mx-auto px-6 py-8">
+                  <h1 className="text-gray-900 mb-8">Избранное</h1>
+                  {favorites.size === 0 ? (
+                    <div className="text-center py-16">
+                      <p className="text-gray-500 mb-4">Список избранного пуст</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                      {products
+                        .filter(p => favorites.has(p.id))
+                        .map(product => (
+                          <div key={product.id} className="bg-white rounded-xl p-4 border border-gray-200">
+                            <h3 className="text-gray-900 mb-2">{product.name}</h3>
+                            <p className="text-gray-600">{product.price.toLocaleString('ru-RU')} ₽</p>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {(currentPage === 'about' || currentPage === 'contacts') && (
+              <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-center">
+                  <h1 className="text-gray-900 mb-4">
+                    {currentPage === 'about' ? 'О нас' : 'Контакты'}
+                  </h1>
+                  <p className="text-gray-600">Эта страница в разработке</p>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </main>
 

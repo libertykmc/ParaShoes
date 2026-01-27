@@ -43,7 +43,7 @@ export function Footer() {
             <ul className="space-y-3">
               <li className="flex items-center gap-2 text-sm">
                 <Phone className="w-4 h-4" />
-                <span>+7 (495) 123-45-67</span>
+                <span>+7 (903) 632-55-45</span>
               </li>
               <li className="flex items-center gap-2 text-sm">
                 <Mail className="w-4 h-4" />
@@ -51,7 +51,7 @@ export function Footer() {
               </li>
               <li className="flex items-start gap-2 text-sm">
                 <MapPin className="w-4 h-4 mt-1" />
-                <span>г. Москва, ул. Тверская, д. 10</span>
+                <span>г. Иваново, ул. 8 марта д.32, 3 этаж магазин 4Б</span>
               </li>
             </ul>
           </div>
@@ -61,22 +61,11 @@ export function Footer() {
             <h3 className="text-white mb-4">Социальные сети</h3>
             <div className="flex gap-3">
               <a 
-                href="#" 
+                href="https://instagram.com/libertykmc"
+                target = "_blank" 
                 className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-amber-700 transition-colors"
               >
                 <Instagram className="w-5 h-5" />
-              </a>
-              <a 
-                href="#" 
-                className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-amber-700 transition-colors"
-              >
-                <Facebook className="w-5 h-5" />
-              </a>
-              <a 
-                href="#" 
-                className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-amber-700 transition-colors"
-              >
-                <Twitter className="w-5 h-5" />
               </a>
             </div>
           </div>

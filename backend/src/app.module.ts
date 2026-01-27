@@ -24,7 +24,7 @@ import { FavoritesModule } from './favorites/favorite.module';
       host: 'localhost',
       port: parseInt('5432'),
       username:  'postgres',
-      password: '1',
+      password: '543637',
       database: 'parashoes',
       entities: [
         User,
