@@ -25,6 +25,14 @@ export class User {
   @Column({ unique: true })
   username: string
 
+  @ApiProperty({ example: 'Иван' })
+  @Column({ nullable: true })
+  firstName?: string
+
+  @ApiProperty({ example: 'Иванов' })
+  @Column({ nullable: true })
+  lastName?: string
+
   @ApiProperty({ example: 'user@example.com' })
   @Column({ unique: true })
   email: string

@@ -6,6 +6,16 @@ export class RegisterDto {
   @IsString()
   username: string
 
+  @ApiProperty({ required: false, example: 'Иван' })
+  @IsString()
+  @IsOptional()
+  firstName?: string
+
+  @ApiProperty({ required: false, example: 'Иванов' })
+  @IsString()
+  @IsOptional()
+  lastName?: string
+
   @ApiProperty()
   @IsEmail()
   email: string

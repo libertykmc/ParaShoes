@@ -61,7 +61,7 @@ export function Footer() {
             <h3 className="text-white mb-4">Социальные сети</h3>
             <div className="flex gap-3">
               <a 
-                href="https://instagram.com/libertykmc"
+                href="https://instagram.com/parashoes_ivanovo"
                 target = "_blank" 
                 className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-amber-700 transition-colors"
               >
@@ -72,7 +72,7 @@ export function Footer() {
         </div>
 
         <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm text-gray-500">
-          © 2025 ParaShoes. Все права защищены.
+          © 2026 ParaShoes. Все права защищены.
         </div>
       </div>
     </footer>

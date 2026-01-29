@@ -28,9 +28,15 @@ export class UsersController {
 
     return {
       id: user.id,
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
       email: user.email,
       role: user.role,
       avatar: user.avatar,
+      phone: user.phone,
+      address: user.address,
+      bonusPoints: user.bonusPoints,
     }
   }
 
@@ -47,9 +53,15 @@ export class UsersController {
     const updatedUser = await this.usersService.findById(user.id)
     return {
       id: updatedUser.id,
+      username: updatedUser.username,
+      firstName: updatedUser.firstName,
+      lastName: updatedUser.lastName,
       email: updatedUser.email,
       role: updatedUser.role,
       avatar: updatedUser.avatar,
+      phone: updatedUser.phone,
+      address: updatedUser.address,
+      bonusPoints: updatedUser.bonusPoints,
     }
   }
 
@@ -63,9 +75,15 @@ export class UsersController {
 
     return {
       id: user.id,
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
       email: user.email,
       role: user.role,
       avatar: user.avatar,
+      phone: user.phone,
+      address: user.address,
+      bonusPoints: user.bonusPoints,
     }
   }
 }

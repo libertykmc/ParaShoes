@@ -8,12 +8,27 @@ import { CartPage, CartItem } from './components/CartPage';
 import { CheckoutPage, OrderData } from './components/CheckoutPage';
 import { ProfilePage } from './components/ProfilePage';
 import { AdminPage } from './components/AdminPage';
-import { mockOrders, mockUser } from './data/products';
+import { mockOrders } from './data/products';
 import { fetchProducts, FrontendProduct } from './api/api';
+import { LoginPage } from './components/LoginPage';
+import { RegisterPage } from './components/RegisterPage';
+import { fetchCurrentUser, FrontendUser, getToken, setToken } from './api/auth';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner@2.0.3';
 
-type Page = 'home' | 'catalog' | 'product' | 'cart' | 'checkout' | 'profile' | 'admin' | 'about' | 'contacts' | 'favorites';
+type Page =
+  | 'home'
+  | 'catalog'
+  | 'product'
+  | 'cart'
+  | 'checkout'
+  | 'profile'
+  | 'admin'
+  | 'about'
+  | 'contacts'
+  | 'favorites'
+  | 'login'
+  | 'register';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>('home');
@@ -23,12 +38,29 @@ export default function App() {
   const [products, setProducts] = useState<FrontendProduct[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<FrontendUser | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    const loadProducts = async () => {
+    const init = async () => {
       try {
         setIsLoading(true);
         setError(null);
+
+        // Загружаем текущего пользователя, если есть токен
+        const token = getToken();
+        if (token) {
+          try {
+            const user = await fetchCurrentUser();
+            setCurrentUser(user);
+          } catch (authError) {
+            console.error('Error loading current user:', authError);
+            setToken(null);
+          }
+        }
+        setIsAuthLoading(false);
+
+        // Загружаем товары
         const fetchedProducts = await fetchProducts();
         setProducts(fetchedProducts);
       } catch (err) {
@@ -41,7 +73,7 @@ export default function App() {
       }
     };
 
-    loadProducts();
+    init();
   }, []);
 
   const handleNavigate = (page: string) => {
@@ -126,6 +158,13 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
+  const handleLogout = () => {
+    setToken(null);
+    setCurrentUser(null);
+    toast.info('Вы вышли из аккаунта');
+    setCurrentPage('home');
+  };
+
   const selectedProduct = selectedProductId
     ? products.find(p => p.id === selectedProductId)
     : null;
@@ -143,19 +182,21 @@ export default function App() {
         cartCount={cartItems.reduce((sum, item) => sum + item.quantity, 0)}
         favoritesCount={favorites.size}
         onNavigate={handleNavigate}
+        isAuthorized={!!currentUser}
+        onLogout={handleLogout}
       />
 
       <main className="flex-1">
-        {isLoading && (
+        {(isLoading || isAuthLoading) && (
           <div className="min-h-screen bg-gray-50 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-              <p className="text-gray-600">Загрузка товаров...</p>
+              <p className="text-gray-600">Загрузка...</p>
             </div>
           </div>
         )}
 
-        {error && !isLoading && (
+        {error && !isLoading && !isAuthLoading && (
           <div className="min-h-screen bg-gray-50 flex items-center justify-center">
             <div className="text-center">
               <p className="text-red-600 mb-4">Ошибка: {error}</p>
@@ -169,8 +210,24 @@ export default function App() {
           </div>
         )}
 
-        {!isLoading && !error && (
+        {!isLoading && !isAuthLoading && !error && (
           <>
+            {currentPage === 'login' && (
+              <LoginPage
+                onLoginSuccess={(user) => setCurrentUser(user)}
+                onNavigateToRegister={() => setCurrentPage('register')}
+                onBack={() => setCurrentPage('home')}
+              />
+            )}
+
+            {currentPage === 'register' && (
+              <RegisterPage
+                onRegisterSuccess={(user) => setCurrentUser(user)}
+                onNavigateToLogin={() => setCurrentPage('login')}
+                onBack={() => setCurrentPage('home')}
+              />
+            )}
+
             {currentPage === 'home' && (
               <HomePage
                 products={products}
@@ -224,10 +281,21 @@ export default function App() {
             )}
 
             {currentPage === 'profile' && (
-              <ProfilePage
-                user={mockUser}
-                orders={mockOrders}
-              />
+              currentUser ? (
+                <ProfilePage
+                  user={currentUser}
+                  orders={mockOrders}
+                />
+              ) : (
+                <LoginPage
+                  onLoginSuccess={(user) => {
+                    setCurrentUser(user);
+                    setCurrentPage('profile');
+                  }}
+                  onNavigateToRegister={() => setCurrentPage('register')}
+                  onBack={() => setCurrentPage('home')}
+                />
+              )
             )}
 
             {currentPage === 'admin' && (

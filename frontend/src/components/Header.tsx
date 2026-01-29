@@ -1,13 +1,21 @@
-import { ShoppingCart, Heart, User, Menu } from 'lucide-react';
+import { ShoppingCart, Heart, User, Menu, LogOut } from 'lucide-react';
 import { Button } from './ui/button';
 
 interface HeaderProps {
   cartCount?: number;
   favoritesCount?: number;
   onNavigate: (page: string) => void;
+  isAuthorized?: boolean;
+  onLogout?: () => void;
 }
 
-export function Header({ cartCount = 0, favoritesCount = 0, onNavigate }: HeaderProps) {
+export function Header({
+  cartCount = 0,
+  favoritesCount = 0,
+  onNavigate,
+  isAuthorized = false,
+  onLogout,
+}: HeaderProps) {
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-[1440px] mx-auto px-6 py-4">
@@ -78,10 +86,21 @@ export function Header({ cartCount = 0, favoritesCount = 0, onNavigate }: Header
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => onNavigate('profile')}
+              onClick={() => onNavigate(isAuthorized ? 'profile' : 'login')}
             >
               <User className="w-5 h-5" />
             </Button>
+
+            {isAuthorized && onLogout && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onLogout}
+                title="Выйти"
+              >
+                <LogOut className="w-5 h-5" />
+              </Button>
+            )}
 
             <Button
               variant="ghost"
