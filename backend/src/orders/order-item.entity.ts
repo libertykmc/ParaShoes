@@ -1,4 +1,4 @@
-import {
+﻿import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
@@ -7,7 +7,7 @@ import {
 } from 'typeorm'
 import { ApiProperty } from '@nestjs/swagger'
 import { Order } from './order.entity'
-import { Product } from '../products/product.entity'
+import { Model } from '../products/product.entity'
 
 @Entity('order_items')
 export class OrderItem {
@@ -35,8 +35,7 @@ export class OrderItem {
   @Column({ name: 'product_id' })
   productId: string
 
-  @ManyToOne(() => Product)
+  @ManyToOne(() => Model)
   @JoinColumn({ name: 'product_id' })
-  product: Product
+  product: Model
 }
-

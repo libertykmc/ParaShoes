@@ -6,7 +6,6 @@ import {
   Delete,
   Param,
   Body,
-  Query,
   UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common'
@@ -16,7 +15,6 @@ import {
   ApiCreatedResponse,
   ApiParam,
   ApiBearerAuth,
-  ApiQuery,
 } from '@nestjs/swagger'
 import { CategoriesService } from './category.service'
 import { ProductCategory } from './category.entity'
@@ -27,28 +25,11 @@ import { UpdateCategoryDto } from './dto/update-category.dto'
 @ApiTags('categories')
 @Controller('categories')
 export class CategoriesController {
-  constructor(private readonly categoriesService: CategoriesService) {}
+  constructor(private readonly categoriesService: CategoriesService) { }
 
   @Get()
   @ApiOkResponse({ type: [ProductCategory], description: 'Список всех категорий' })
-  @ApiQuery({ name: 'material', required: false })
-  @ApiQuery({ name: 'size', required: false, type: Number })
-  @ApiQuery({ name: 'season', required: false })
-  @ApiQuery({ name: 'style', required: false })
-  findAll(
-    @Query('material') material?: string,
-    @Query('size') size?: number,
-    @Query('season') season?: string,
-    @Query('style') style?: string,
-  ) {
-    if (material || size || season || style) {
-      return this.categoriesService.findByFilters({
-        material: material as any,
-        size: size ? parseInt(size.toString()) : undefined,
-        season,
-        style: style as any,
-      })
-    }
+  findAll() {
     return this.categoriesService.findAll()
   }
 

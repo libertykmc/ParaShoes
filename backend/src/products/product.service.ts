@@ -1,32 +1,33 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
+﻿import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
-import { Product } from './product.entity'
+import { Model } from './product.entity'
 import { CategoriesService } from '../categories/category.service'
 
 @Injectable()
 export class ProductsService {
   constructor(
-    @InjectRepository(Product)
-    private readonly productsRepo: Repository<Product>,
+    @InjectRepository(Model)
+    private readonly productsRepo: Repository<Model>,
     private readonly categoriesService: CategoriesService,
   ) {}
 
-  async findAll(): Promise<Product[]> {
-    return this.productsRepo.find({ relations: ['category'] })
+  async findAll(): Promise<Model[]> {
+    return this.productsRepo.find({
+      relations: ['category', 'material', 'style', 'season', 'products'],
+    })
   }
 
-  async findById(id: string): Promise<Product> {
+  async findById(id: string): Promise<Model> {
     const product = await this.productsRepo.findOne({
       where: { id },
-      relations: ['category'],
+      relations: ['category', 'material', 'style', 'season', 'products'],
     })
     if (!product) throw new NotFoundException(`Товар с id ${id} не найден`)
     return product
   }
 
-  async create(data: Partial<Product>): Promise<Product> {
-    // Проверяем существование категории, если categoryId передан
+  async create(data: Partial<Model>): Promise<Model> {
     if (data.categoryId) {
       try {
         await this.categoriesService.findById(data.categoryId)
@@ -44,8 +45,7 @@ export class ProductsService {
     return this.productsRepo.save(newProduct)
   }
 
-  async update(id: string, data: Partial<Product>): Promise<Product> {
-    // Проверяем существование категории, если categoryId передан
+  async update(id: string, data: Partial<Model>): Promise<Model> {
     if (data.categoryId) {
       try {
         await this.categoriesService.findById(data.categoryId)

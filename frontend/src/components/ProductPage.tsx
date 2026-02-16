@@ -1,56 +1,55 @@
-import { useState } from 'react';
-import { ShoppingCart, Heart, ArrowLeft } from 'lucide-react';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { ProductCard } from './ProductCard';
-import { ImageWithFallback } from './figma/ImageWithFallback';
-import { Product } from '../data/products';
+﻿import { useEffect, useState } from 'react'
+import { ShoppingCart, Heart, ArrowLeft } from 'lucide-react'
+import { Button } from './ui/button'
+import { Badge } from './ui/badge'
+import { ProductCard } from './ProductCard'
+import { ImageWithFallback } from './figma/ImageWithFallback'
+import { Product } from '../data/products'
 
 interface ProductPageProps {
-  product: Product;
-  relatedProducts: Product[];
-  onAddToCart: (productId: string, size: number) => void;
-  onToggleFavorite: (productId: string) => void;
-  onViewProduct: (productId: string) => void;
-  onBack: () => void;
-  isFavorite: boolean;
-  favorites: Set<string>;
+  product: Product
+  relatedProducts: Product[]
+  onAddToCart: (productId: string, size: number) => void
+  onToggleFavorite: (productId: string) => void
+  onViewProduct: (productId: string) => void
+  onBack: () => void
+  isFavorite: boolean
+  favorites: Set<string>
 }
 
-export function ProductPage({ 
-  product, 
+const ALL_SIZES = Array.from({ length: 11 }, (_, index) => 35 + index)
+
+export function ProductPage({
+  product,
   relatedProducts,
-  onAddToCart, 
-  onToggleFavorite, 
+  onAddToCart,
+  onToggleFavorite,
   onViewProduct,
   onBack,
   isFavorite,
-  favorites
+  favorites,
 }: ProductPageProps) {
-  const [selectedSize, setSelectedSize] = useState<number | null>(null);
+  const [selectedSize, setSelectedSize] = useState<number | null>(null)
+
+  useEffect(() => {
+    setSelectedSize(null)
+  }, [product.id])
 
   const handleAddToCart = () => {
-    if (selectedSize) {
-      onAddToCart(product.id, selectedSize);
+    if (selectedSize && product.sizes.includes(selectedSize)) {
+      onAddToCart(product.id, selectedSize)
     }
-  };
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-[1440px] mx-auto px-6 py-8">
-        {/* Back Button */}
-        <Button 
-          variant="ghost" 
-          onClick={onBack}
-          className="mb-6"
-        >
+        <Button variant="ghost" onClick={onBack} className="mb-6">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Назад к каталогу
         </Button>
 
-        {/* Product Details */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
-          {/* Image */}
           <div className="relative aspect-square bg-white rounded-xl overflow-hidden border border-gray-200">
             <ImageWithFallback
               src={product.image}
@@ -64,10 +63,9 @@ export function ProductPage({
             )}
           </div>
 
-          {/* Info */}
           <div className="bg-white rounded-xl p-8 border border-gray-200">
             <h1 className="text-gray-900 mb-4">{product.name}</h1>
-            
+
             <div className="flex items-baseline gap-3 mb-6">
               <span className="text-3xl text-gray-900">
                 {product.price.toLocaleString('ru-RU')} ₽
@@ -79,7 +77,6 @@ export function ProductPage({
               )}
             </div>
 
-            {/* Status */}
             <div className="mb-6">
               {product.inStock ? (
                 <Badge variant="outline" className="border-green-500 text-green-700">
@@ -92,10 +89,8 @@ export function ProductPage({
               )}
             </div>
 
-            {/* Description */}
             <p className="text-gray-600 mb-6">{product.description}</p>
 
-            {/* Specifications */}
             <div className="space-y-3 mb-6 pb-6 border-b border-gray-200">
               <div className="flex justify-between">
                 <span className="text-gray-600">Материал:</span>
@@ -115,31 +110,35 @@ export function ProductPage({
               </div>
             </div>
 
-            {/* Size Selection */}
             <div className="mb-6">
               <h3 className="text-gray-900 mb-3">Выберите размер</h3>
-              <div className="grid grid-cols-7 gap-2">
-                {product.sizes.map(size => (
-                  <button
-                    key={size}
-                    onClick={() => setSelectedSize(size)}
-                    disabled={!product.inStock}
-                    className={`
-                      p-3 rounded-lg border-2 transition-all
-                      ${selectedSize === size 
-                        ? 'border-amber-700 bg-amber-50' 
-                        : 'border-gray-200 hover:border-gray-300'
-                      }
-                      ${!product.inStock ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                    `}
-                  >
-                    {size}
-                  </button>
-                ))}
+              <div className="grid grid-cols-6 sm:grid-cols-7 gap-2">
+                {ALL_SIZES.map((size) => {
+                  const isSizeAvailable = product.sizes.includes(size)
+                  const isDisabled = !product.inStock || !isSizeAvailable
+
+                  return (
+                    <button
+                      key={size}
+                      onClick={() => {
+                        if (!isDisabled) {
+                          setSelectedSize(size)
+                        }
+                      }}
+                      disabled={isDisabled}
+                      className={`
+                        p-3 rounded-lg border-2 transition-all
+                        ${selectedSize === size ? 'border-amber-700 bg-amber-50' : 'border-gray-200'}
+                        ${isDisabled ? 'opacity-40 cursor-not-allowed bg-gray-100 text-gray-400' : 'cursor-pointer hover:border-gray-300'}
+                      `}
+                    >
+                      {size}
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
-            {/* Actions */}
             <div className="flex gap-3">
               <Button
                 size="lg"
@@ -150,7 +149,7 @@ export function ProductPage({
                 <ShoppingCart className="w-5 h-5 mr-2" />
                 Добавить в корзину
               </Button>
-              
+
               <Button
                 size="lg"
                 variant="outline"
@@ -166,7 +165,6 @@ export function ProductPage({
           </div>
         </div>
 
-        {/* Related Products */}
         <section>
           <h2 className="text-gray-900 mb-6">Похожие товары</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -174,7 +172,12 @@ export function ProductPage({
               <ProductCard
                 key={relatedProduct.id}
                 product={relatedProduct}
-                onAddToCart={(id) => onAddToCart(id, relatedProduct.sizes[0])}
+                onAddToCart={(id) => {
+                  const defaultSize = relatedProduct.sizes[0]
+                  if (defaultSize) {
+                    onAddToCart(id, defaultSize)
+                  }
+                }}
                 onToggleFavorite={onToggleFavorite}
                 onViewProduct={onViewProduct}
                 isFavorite={favorites.has(relatedProduct.id)}
@@ -184,5 +187,5 @@ export function ProductPage({
         </section>
       </div>
     </div>
-  );
+  )
 }

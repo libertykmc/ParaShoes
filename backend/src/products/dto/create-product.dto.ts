@@ -1,12 +1,12 @@
-import { ApiProperty } from '@nestjs/swagger'
-import { IsBoolean, IsNumber, IsOptional, IsString, Min, IsUUID } from 'class-validator'
+﻿import { ApiProperty } from '@nestjs/swagger'
+import { IsNumber, IsOptional, IsString, Min, IsUUID } from 'class-validator'
 
 export class CreateProductDto {
-  @ApiProperty({ example: 'Кроссовки Nike Air Max' })
+  @ApiProperty({ example: 'Nike Air Max' })
   @IsString()
   name: string
 
-  @ApiProperty({ example: 'Удобные и стильные кроссовки' })
+  @ApiProperty({ example: 'Comfortable sneakers' })
   @IsString()
   @IsOptional()
   description?: string
@@ -33,13 +33,23 @@ export class CreateProductDto {
   @IsOptional()
   quantityInStock?: number
 
-  @ApiProperty({ example: true })
-  @IsBoolean()
-  @IsOptional()
-  productStatus?: boolean
-
   @ApiProperty({ example: 'e32a1320-3f6f-456a-bcd8-159b6527076d', required: false })
   @IsUUID()
   @IsOptional()
   categoryId?: string
+
+  @ApiProperty({ example: 'e32a1320-3f6f-456a-bcd8-159b6527076d', required: false })
+  @IsUUID()
+  @IsOptional()
+  materialId?: string
+
+  @ApiProperty({ example: 'e32a1320-3f6f-456a-bcd8-159b6527076d', required: false })
+  @IsUUID()
+  @IsOptional()
+  styleId?: string
+
+  @ApiProperty({ example: 'e32a1320-3f6f-456a-bcd8-159b6527076d', required: false })
+  @IsUUID()
+  @IsOptional()
+  seasonId?: string
 }

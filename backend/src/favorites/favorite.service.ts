@@ -1,16 +1,16 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common'
+﻿import { Injectable, NotFoundException, ConflictException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { Favorite } from './favorite.entity'
-import { Product } from '../products/product.entity'
+import { Model } from '../products/product.entity'
 
 @Injectable()
 export class FavoritesService {
   constructor(
     @InjectRepository(Favorite)
     private readonly favoritesRepo: Repository<Favorite>,
-    @InjectRepository(Product)
-    private readonly productsRepo: Repository<Product>,
+    @InjectRepository(Model)
+    private readonly productsRepo: Repository<Model>,
   ) {}
 
   async findAll(userId: string): Promise<Favorite[]> {
@@ -31,13 +31,11 @@ export class FavoritesService {
   }
 
   async addToFavorites(userId: string, productId: string): Promise<Favorite> {
-    // Проверяем наличие товара
     const product = await this.productsRepo.findOneBy({ id: productId })
     if (!product) {
       throw new NotFoundException(`Товар с id ${productId} не найден`)
     }
 
-    // Проверяем, не добавлен ли уже товар в избранное
     const existing = await this.favoritesRepo.findOne({
       where: { userId, productId },
     })
@@ -70,4 +68,3 @@ export class FavoritesService {
     return !!favorite
   }
 }
-

@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
-import { ProductCategory, MaterialType, Style } from './category.entity'
+import { ProductCategory } from './category.entity'
 import { CreateCategoryDto } from './dto/create-category.dto'
 import { UpdateCategoryDto } from './dto/update-category.dto'
 
@@ -10,7 +10,7 @@ export class CategoriesService {
   constructor(
     @InjectRepository(ProductCategory)
     private readonly categoriesRepo: Repository<ProductCategory>,
-  ) {}
+  ) { }
 
   async findAll(): Promise<ProductCategory[]> {
     return this.categoriesRepo.find({ relations: ['products'] })
@@ -40,23 +40,4 @@ export class CategoriesService {
     const category = await this.findById(id)
     await this.categoriesRepo.remove(category)
   }
-
-  async findByFilters(filters: {
-    material?: MaterialType
-    size?: number
-    season?: string
-    style?: Style
-  }): Promise<ProductCategory[]> {
-    const where: any = {}
-    if (filters.material) where.material = filters.material
-    if (filters.size) where.size = filters.size
-    if (filters.season) where.season = filters.season
-    if (filters.style) where.style = filters.style
-
-    return this.categoriesRepo.find({
-      where,
-      relations: ['products'],
-    })
-  }
 }
-

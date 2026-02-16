@@ -1,11 +1,11 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
+﻿import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { Order, OrderStatus } from './order.entity'
 import { OrderItem } from './order-item.entity'
 import { CreateOrderDto } from './dto/create-order.dto'
 import { UpdateOrderDto } from './dto/update-order.dto'
-import { Product } from '../products/product.entity'
+import { Model } from '../products/product.entity'
 
 @Injectable()
 export class OrdersService {
@@ -14,8 +14,8 @@ export class OrdersService {
     private readonly ordersRepo: Repository<Order>,
     @InjectRepository(OrderItem)
     private readonly orderItemsRepo: Repository<OrderItem>,
-    @InjectRepository(Product)
-    private readonly productsRepo: Repository<Product>,
+    @InjectRepository(Model)
+    private readonly productsRepo: Repository<Model>,
   ) {}
 
   async findAll(userId?: string): Promise<Order[]> {
@@ -42,7 +42,6 @@ export class OrdersService {
   async create(userId: string, dto: CreateOrderDto): Promise<Order> {
     let totalAmount = 0
 
-    // Проверяем наличие товаров и рассчитываем общую сумму
     for (const item of dto.items) {
       const product = await this.productsRepo.findOneBy({ id: item.productId })
       if (!product) {
@@ -56,7 +55,6 @@ export class OrdersService {
       totalAmount += item.price * item.quantity
     }
 
-    // Создаем заказ
     const order = this.ordersRepo.create({
       userId,
       deliveryAddress: dto.deliveryAddress,
@@ -65,7 +63,6 @@ export class OrdersService {
     })
     const savedOrder = await this.ordersRepo.save(order)
 
-    // Создаем элементы заказа и обновляем количество на складе
     const orderItems: OrderItem[] = []
     for (const item of dto.items) {
       const orderItem = this.orderItemsRepo.create({
@@ -76,7 +73,6 @@ export class OrdersService {
       })
       const savedOrderItem = await this.orderItemsRepo.save(orderItem)
 
-      // Уменьшаем количество товара на складе
       const product = await this.productsRepo.findOneBy({ id: item.productId })
       if (!product) {
         throw new NotFoundException(`Товар с id ${item.productId} не найден`)
@@ -103,7 +99,6 @@ export class OrdersService {
     }
     order.status = OrderStatus.CANCELLED
 
-    // Возвращаем товары на склад
     for (const item of order.orderItems) {
       const product = await this.productsRepo.findOneBy({ id: item.productId })
       if (product) {
@@ -120,4 +115,3 @@ export class OrdersService {
     await this.ordersRepo.remove(order)
   }
 }
-

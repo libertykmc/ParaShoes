@@ -1,4 +1,4 @@
-import {
+﻿import {
   Controller,
   Get,
   Post,
@@ -11,35 +11,34 @@ import {
 } from '@nestjs/common'
 import { ApiTags, ApiOkResponse, ApiCreatedResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger'
 import { ProductsService } from './product.service'
-import { Product } from './product.entity'
+import { Model } from './product.entity'
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'
 import { CreateProductDto } from './dto/create-product.dto'
 import { UpdateProductDto } from './dto/update-product.dto'
 import { UpdateProductImageDto } from './dto/update-product-image.dto'
 
-@ApiTags('products')
-@Controller('products')
+@ApiTags('models')
+@Controller('models')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Get()
-  @ApiOkResponse({ type: [Product], description: 'Список всех товаров' })
+  @ApiOkResponse({ type: [Model], description: 'Список всех моделей' })
   findAll() {
     return this.productsService.findAll()
   }
 
   @Get(':id')
-  @ApiParam({ name: 'id', type: String, description: 'UUID товара' })
-  @ApiOkResponse({ type: Product, description: 'Информация о товаре' })
+  @ApiParam({ name: 'id', type: String, description: 'UUID модели' })
+  @ApiOkResponse({ type: Model, description: 'Информация о модели' })
   findById(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.productsService.findById(id)
   }
 
- 
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @Post()
-  @ApiCreatedResponse({ type: Product, description: 'Создан новый товар' })
+  @ApiCreatedResponse({ type: Model, description: 'Создана новая модель' })
   create(@Body() dto: CreateProductDto) {
     return this.productsService.create(dto)
   }
@@ -47,7 +46,7 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @Patch(':id')
-  @ApiOkResponse({ type: Product, description: 'Товар обновлен' })
+  @ApiOkResponse({ type: Model, description: 'Модель обновлена' })
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateProductDto,
@@ -58,7 +57,7 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @Patch(':id/image')
-  @ApiOkResponse({ type: Product, description: 'Updated product image URL' })
+  @ApiOkResponse({ type: Model, description: 'Updated model image URL' })
   updateImage(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateProductImageDto,
@@ -69,7 +68,7 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @Delete(':id')
-  @ApiOkResponse({ description: 'Товар удален' })
+  @ApiOkResponse({ description: 'Модель удалена' })
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.productsService.remove(id)
   }

@@ -1,18 +1,18 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+﻿import { Injectable, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { Cart } from './cart.entity'
 import { AddToCartDto } from './dto/add-to-cart.dto'
 import { UpdateCartItemDto } from './dto/update-cart-item.dto'
-import { Product } from '../products/product.entity'
+import { Model } from '../products/product.entity'
 
 @Injectable()
 export class CartService {
   constructor(
     @InjectRepository(Cart)
     private readonly cartRepo: Repository<Cart>,
-    @InjectRepository(Product)
-    private readonly productsRepo: Repository<Product>,
+    @InjectRepository(Model)
+    private readonly productsRepo: Repository<Model>,
   ) {}
 
   async findAll(userId: string): Promise<Cart[]> {
@@ -33,24 +33,20 @@ export class CartService {
   }
 
   async addToCart(userId: string, dto: AddToCartDto): Promise<Cart> {
-    // Проверяем наличие товара
     const product = await this.productsRepo.findOneBy({ id: dto.productId })
     if (!product) {
       throw new NotFoundException(`Товар с id ${dto.productId} не найден`)
     }
 
-    // Проверяем наличие на складе
     if (product.quantityInStock < dto.quantity) {
       throw new NotFoundException('Недостаточно товара на складе')
     }
 
-    // Проверяем, есть ли уже этот товар в корзине
     const existingItem = await this.cartRepo.findOne({
       where: { userId, productId: dto.productId },
     })
 
     if (existingItem) {
-      // Обновляем количество
       existingItem.quantity += dto.quantity
       if (product.quantityInStock < existingItem.quantity) {
         throw new NotFoundException('Недостаточно товара на складе')
@@ -58,7 +54,6 @@ export class CartService {
       return this.cartRepo.save(existingItem)
     }
 
-    // Создаем новый элемент корзины
     const cartItem = this.cartRepo.create({
       userId,
       productId: dto.productId,
@@ -96,4 +91,3 @@ export class CartService {
     await this.cartRepo.delete({ userId })
   }
 }
-

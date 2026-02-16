@@ -1,4 +1,4 @@
-import {
+﻿import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
@@ -7,7 +7,7 @@ import {
 } from 'typeorm'
 import { ApiProperty } from '@nestjs/swagger'
 import { User } from '../users/user.entity'
-import { Product } from '../products/product.entity'
+import { Model } from '../products/product.entity'
 
 @Entity('favorites')
 export class Favorite {
@@ -27,8 +27,7 @@ export class Favorite {
   @Column({ name: 'product_id' })
   productId: string
 
-  @ManyToOne(() => Product, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Model, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'product_id' })
-  product: Product
+  product: Model
 }
-
