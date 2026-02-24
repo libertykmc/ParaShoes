@@ -14,7 +14,7 @@ import { LoginPage } from './components/LoginPage';
 import { RegisterPage } from './components/RegisterPage';
 import { fetchCurrentUser, FrontendUser, getToken, setToken } from './api/auth';
 import { Toaster } from './components/ui/sonner';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 type Page =
   | 'home'
@@ -47,7 +47,7 @@ export default function App() {
         setIsLoading(true);
         setError(null);
 
-        // Р—Р°РіСЂСѓР¶Р°РµРј С‚РµРєСѓС‰РµРіРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ, РµСЃР»Рё РµСЃС‚СЊ С‚РѕРєРµРЅ
+        // Загружаем текущего пользователя, если есть токен
         const token = getToken();
         if (token) {
           try {
@@ -60,13 +60,13 @@ export default function App() {
         }
         setIsAuthLoading(false);
 
-        // Р—Р°РіСЂСѓР¶Р°РµРј С‚РѕРІР°СЂС‹
+        // Загружаем товары
         const fetchedProducts = await fetchProducts();
         setProducts(fetchedProducts);
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ С‚РѕРІР°СЂС‹';
+        const errorMessage = err instanceof Error ? err.message : 'Не удалось загрузить товары';
         setError(errorMessage);
-        toast.error('РћС€РёР±РєР° Р·Р°РіСЂСѓР·РєРё С‚РѕРІР°СЂРѕРІ');
+        toast.error('Ошибка загрузки товаров');
         console.error('Error loading products:', err);
       } finally {
         setIsLoading(false);
@@ -106,7 +106,7 @@ export default function App() {
           ? { ...item, quantity: item.quantity + 1 }
           : item
       ));
-      toast.success('РљРѕР»РёС‡РµСЃС‚РІРѕ С‚РѕРІР°СЂР° СѓРІРµР»РёС‡РµРЅРѕ');
+      toast.success('Количество товара увеличено');
     } else {
       const newItem: CartItem = {
         id: `cart-${Date.now()}-${productId}`,
@@ -118,7 +118,7 @@ export default function App() {
         quantity: 1
       };
       setCartItems([...cartItems, newItem]);
-      toast.success('РўРѕРІР°СЂ РґРѕР±Р°РІР»РµРЅ РІ РєРѕСЂР·РёРЅСѓ');
+      toast.success('Товар добавлен в корзину');
     }
   };
 
@@ -127,10 +127,10 @@ export default function App() {
       const newFavorites = new Set(prev);
       if (newFavorites.has(productId)) {
         newFavorites.delete(productId);
-        toast.info('РўРѕРІР°СЂ СѓРґР°Р»РµРЅ РёР· РёР·Р±СЂР°РЅРЅРѕРіРѕ');
+        toast.info('Товар удален из избранного');
       } else {
         newFavorites.add(productId);
-        toast.success('РўРѕРІР°СЂ РґРѕР±Р°РІР»РµРЅ РІ РёР·Р±СЂР°РЅРЅРѕРµ');
+        toast.success('Товар добавлен в избранное');
       }
       return newFavorites;
     });
@@ -144,7 +144,7 @@ export default function App() {
 
   const handleRemoveItem = (id: string) => {
     setCartItems(cartItems.filter(item => item.id !== id));
-    toast.info('РўРѕРІР°СЂ СѓРґР°Р»РµРЅ РёР· РєРѕСЂР·РёРЅС‹');
+    toast.info('Товар удален из корзины');
   };
 
   const handleCheckout = () => {
@@ -165,7 +165,7 @@ export default function App() {
   const handleLogout = () => {
     setToken(null);
     setCurrentUser(null);
-    toast.info('Р’С‹ РІС‹С€Р»Рё РёР· Р°РєРєР°СѓРЅС‚Р°');
+    toast.info('Вы вышли из аккаунта');
     setCurrentPage('home');
   };
 
@@ -195,7 +195,7 @@ export default function App() {
           <div className="min-h-screen bg-gray-50 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-              <p className="text-gray-600">Р—Р°РіСЂСѓР·РєР°...</p>
+              <p className="text-gray-600">Загрузка...</p>
             </div>
           </div>
         )}
@@ -203,12 +203,12 @@ export default function App() {
         {error && !isLoading && !isAuthLoading && (
           <div className="min-h-screen bg-gray-50 flex items-center justify-center">
             <div className="text-center">
-              <p className="text-red-600 mb-4">РћС€РёР±РєР°: {error}</p>
+              <p className="text-red-600 mb-4">Ошибка: {error}</p>
               <button
                 onClick={() => window.location.reload()}
                 className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
               >
-                РћР±РЅРѕРІРёС‚СЊ СЃС‚СЂР°РЅРёС†Сѓ
+                Обновить страницу
               </button>
             </div>
           </div>
@@ -306,17 +306,17 @@ export default function App() {
               <AdminPage
                 products={products}
                 orders={mockOrders}
-                users={[mockUser]}
+                users={currentUser ? [currentUser] : []}
               />
             )}
 
             {currentPage === 'favorites' && (
               <div className="min-h-screen bg-gray-50">
                 <div className="max-w-[1440px] mx-auto px-6 py-8">
-                  <h1 className="text-gray-900 mb-8">РР·Р±СЂР°РЅРЅРѕРµ</h1>
+                  <h1 className="text-gray-900 mb-8">Избранное</h1>
                   {favorites.size === 0 ? (
                     <div className="text-center py-16">
-                      <p className="text-gray-500 mb-4">РЎРїРёСЃРѕРє РёР·Р±СЂР°РЅРЅРѕРіРѕ РїСѓСЃС‚</p>
+                      <p className="text-gray-500 mb-4">Список избранного пуст</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -325,7 +325,7 @@ export default function App() {
                         .map(product => (
                           <div key={product.id} className="bg-white rounded-xl p-4 border border-gray-200">
                             <h3 className="text-gray-900 mb-2">{product.name}</h3>
-                            <p className="text-gray-600">{product.price.toLocaleString('ru-RU')} в‚Ѕ</p>
+                            <p className="text-gray-600">{product.price.toLocaleString('ru-RU')} ₽</p>
                           </div>
                         ))}
                     </div>
@@ -338,9 +338,9 @@ export default function App() {
               <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                 <div className="text-center">
                   <h1 className="text-gray-900 mb-4">
-                    {currentPage === 'about' ? 'Рћ РЅР°СЃ' : 'РљРѕРЅС‚Р°РєС‚С‹'}
+                    {currentPage === 'about' ? 'О нас' : 'Контакты'}
                   </h1>
-                  <p className="text-gray-600">Р­С‚Р° СЃС‚СЂР°РЅРёС†Р° РІ СЂР°Р·СЂР°Р±РѕС‚РєРµ</p>
+                  <p className="text-gray-600">Эта страница в разработке</p>
                 </div>
               </div>
             )}

@@ -2,7 +2,7 @@ import { useState, FormEvent } from 'react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { login, setToken, fetchCurrentUser, FrontendUser } from '../api/auth';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface LoginPageProps {
   onLoginSuccess: (user: FrontendUser) => void;
