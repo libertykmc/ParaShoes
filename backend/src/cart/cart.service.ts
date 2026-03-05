@@ -1,10 +1,11 @@
-﻿import { Injectable, NotFoundException } from '@nestjs/common'
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
+import { ModelSizeStock } from '../products/model-size-stock.entity'
+import { Model } from '../products/product.entity'
 import { Cart } from './cart.entity'
 import { AddToCartDto } from './dto/add-to-cart.dto'
 import { UpdateCartItemDto } from './dto/update-cart-item.dto'
-import { Model } from '../products/product.entity'
 
 @Injectable()
 export class CartService {
@@ -12,13 +13,15 @@ export class CartService {
     @InjectRepository(Cart)
     private readonly cartRepo: Repository<Cart>,
     @InjectRepository(Model)
-    private readonly productsRepo: Repository<Model>,
+    private readonly modelsRepo: Repository<Model>,
+    @InjectRepository(ModelSizeStock)
+    private readonly sizeStocksRepo: Repository<ModelSizeStock>,
   ) {}
 
   async findAll(userId: string): Promise<Cart[]> {
     return this.cartRepo.find({
       where: { userId },
-      relations: ['product'],
+      relations: ['model'],
       order: { id: 'ASC' },
     })
   }
@@ -26,37 +29,45 @@ export class CartService {
   async findById(id: string, userId: string): Promise<Cart> {
     const cartItem = await this.cartRepo.findOne({
       where: { id, userId },
-      relations: ['product'],
+      relations: ['model'],
     })
-    if (!cartItem) throw new NotFoundException(`Элемент корзины с id ${id} не найден`)
+    if (!cartItem) {
+      throw new NotFoundException(`Элемент корзины с id ${id} не найден`)
+    }
     return cartItem
   }
 
   async addToCart(userId: string, dto: AddToCartDto): Promise<Cart> {
-    const product = await this.productsRepo.findOneBy({ id: dto.productId })
-    if (!product) {
-      throw new NotFoundException(`Товар с id ${dto.productId} не найден`)
+    const model = await this.modelsRepo.findOneBy({ id: dto.modelId })
+    if (!model) {
+      throw new NotFoundException(`Модель с id ${dto.modelId} не найдена`)
     }
 
-    if (product.quantityInStock < dto.quantity) {
-      throw new NotFoundException('Недостаточно товара на складе')
+    const sizeStock = await this.sizeStocksRepo.findOne({
+      where: { modelId: dto.modelId, size: dto.size },
+    })
+    if (!sizeStock) {
+      throw new BadRequestException(`Размер ${dto.size} для этой модели недоступен`)
     }
 
     const existingItem = await this.cartRepo.findOne({
-      where: { userId, productId: dto.productId },
+      where: { userId, modelId: dto.modelId, size: dto.size },
     })
 
+    const nextQuantity = (existingItem?.quantity || 0) + dto.quantity
+    if (sizeStock.stock < nextQuantity) {
+      throw new BadRequestException('Недостаточно товара на складе для выбранного размера')
+    }
+
     if (existingItem) {
-      existingItem.quantity += dto.quantity
-      if (product.quantityInStock < existingItem.quantity) {
-        throw new NotFoundException('Недостаточно товара на складе')
-      }
+      existingItem.quantity = nextQuantity
       return this.cartRepo.save(existingItem)
     }
 
     const cartItem = this.cartRepo.create({
       userId,
-      productId: dto.productId,
+      modelId: dto.modelId,
+      size: dto.size,
       quantity: dto.quantity,
     })
     return this.cartRepo.save(cartItem)
@@ -68,14 +79,15 @@ export class CartService {
     dto: UpdateCartItemDto,
   ): Promise<Cart> {
     const cartItem = await this.findById(id, userId)
-    const product = await this.productsRepo.findOneBy({ id: cartItem.productId })
+    const sizeStock = await this.sizeStocksRepo.findOne({
+      where: { modelId: cartItem.modelId, size: cartItem.size },
+    })
 
-    if (!product) {
-      throw new NotFoundException('Товар не найден')
+    if (!sizeStock) {
+      throw new BadRequestException('Выбранный размер больше недоступен')
     }
-
-    if (product.quantityInStock < dto.quantity) {
-      throw new NotFoundException('Недостаточно товара на складе')
+    if (sizeStock.stock < dto.quantity) {
+      throw new BadRequestException('Недостаточно товара на складе для выбранного размера')
     }
 
     cartItem.quantity = dto.quantity
@@ -91,3 +103,4 @@ export class CartService {
     await this.cartRepo.delete({ userId })
   }
 }
+

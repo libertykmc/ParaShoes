@@ -1,13 +1,15 @@
-﻿const API_BASE_URL = 'http://localhost:3000'
+const API_BASE_URL = 'http://localhost:3001'
 
 interface NamedEntity {
   id: string
   name: string
 }
 
-interface BackendProductItem {
+export interface BackendProductSize {
   id: string
+  modelId: string
   size: number
+  stock: number
 }
 
 export interface BackendProduct {
@@ -17,7 +19,6 @@ export interface BackendProduct {
   price: number | string
   discount: number | string
   image?: string
-  quantityInStock: number
   categoryId?: string
   category?: NamedEntity
   materialId?: string
@@ -26,8 +27,14 @@ export interface BackendProduct {
   style?: NamedEntity
   seasonId?: string
   season?: NamedEntity
-  products?: BackendProductItem[]
+  sizes?: BackendProductSize[]
   createdAt: string
+}
+
+export interface FrontendProductSize {
+  size: number
+  stock: number
+  available: boolean
 }
 
 export interface FrontendProduct {
@@ -47,7 +54,7 @@ export interface FrontendProduct {
   seasonId?: string
   description: string
   inStock: boolean
-  sizes: number[]
+  sizes: FrontendProductSize[]
 }
 
 function transformProduct(backendProduct: BackendProduct): FrontendProduct {
@@ -58,11 +65,14 @@ function transformProduct(backendProduct: BackendProduct): FrontendProduct {
     ? Math.round(price / (1 - discount / 100))
     : undefined
 
-  const availableSizes = Array.from(
-    new Set((backendProduct.products ?? []).map((product) => Number(product.size))),
-  )
-    .filter((size) => Number.isInteger(size) && size >= 35 && size <= 45)
-    .sort((a, b) => a - b)
+  const sizes = (backendProduct.sizes ?? [])
+    .map((sizeItem) => ({
+      size: Number(sizeItem.size),
+      stock: Number(sizeItem.stock),
+      available: Number(sizeItem.stock) > 0,
+    }))
+    .filter((sizeItem) => Number.isInteger(sizeItem.size) && sizeItem.size >= 35 && sizeItem.size <= 45)
+    .sort((left, right) => left.size - right.size)
 
   return {
     id: backendProduct.id,
@@ -80,8 +90,8 @@ function transformProduct(backendProduct: BackendProduct): FrontendProduct {
     styleId: backendProduct.styleId,
     seasonId: backendProduct.seasonId,
     description: backendProduct.description || 'Описание отсутствует',
-    inStock: backendProduct.quantityInStock > 0 && availableSizes.length > 0,
-    sizes: availableSizes,
+    inStock: sizes.some((sizeItem) => sizeItem.available),
+    sizes,
   }
 }
 
@@ -112,3 +122,4 @@ export async function fetchProductById(id: string): Promise<FrontendProduct> {
     throw error
   }
 }
+

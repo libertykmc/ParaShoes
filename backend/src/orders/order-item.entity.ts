@@ -1,13 +1,13 @@
-﻿import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  ManyToOne,
-  JoinColumn,
-} from 'typeorm'
 import { ApiProperty } from '@nestjs/swagger'
-import { Order } from './order.entity'
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm'
 import { Model } from '../products/product.entity'
+import { Order } from './order.entity'
 
 @Entity('order_items')
 export class OrderItem {
@@ -32,10 +32,15 @@ export class OrderItem {
   order: Order
 
   @ApiProperty()
-  @Column({ name: 'product_id' })
-  productId: string
+  @Column({ name: 'model_id' })
+  modelId: string
 
   @ManyToOne(() => Model)
-  @JoinColumn({ name: 'product_id' })
-  product: Model
+  @JoinColumn({ name: 'model_id' })
+  model: Model
+
+  @ApiProperty({ example: 42 })
+  @Column({ type: 'int' })
+  size: number
 }
+

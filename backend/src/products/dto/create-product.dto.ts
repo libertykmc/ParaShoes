@@ -1,5 +1,29 @@
-﻿import { ApiProperty } from '@nestjs/swagger'
-import { IsNumber, IsOptional, IsString, Min, IsUUID } from 'class-validator'
+import { ApiProperty } from '@nestjs/swagger'
+import { Type } from 'class-transformer'
+import {
+  IsArray,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+  ValidateNested,
+} from 'class-validator'
+
+export class ProductSizeStockDto {
+  @ApiProperty({ example: 42 })
+  @IsInt()
+  @Min(35)
+  @Max(45)
+  size: number
+
+  @ApiProperty({ example: 3 })
+  @IsInt()
+  @Min(0)
+  stock: number
+}
 
 export class CreateProductDto {
   @ApiProperty({ example: 'Nike Air Max' })
@@ -27,28 +51,49 @@ export class CreateProductDto {
   @IsOptional()
   image?: string
 
-  @ApiProperty({ example: 50 })
-  @IsNumber()
-  @Min(0)
+  @ApiProperty({
+    type: [ProductSizeStockDto],
+    required: false,
+    example: [
+      { size: 36, stock: 2 },
+      { size: 37, stock: 1 },
+      { size: 38, stock: 0 },
+    ],
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProductSizeStockDto)
   @IsOptional()
-  quantityInStock?: number
+  sizes?: ProductSizeStockDto[]
 
-  @ApiProperty({ example: 'e32a1320-3f6f-456a-bcd8-159b6527076d', required: false })
+  @ApiProperty({
+    example: 'e32a1320-3f6f-456a-bcd8-159b6527076d',
+    required: false,
+  })
   @IsUUID()
   @IsOptional()
   categoryId?: string
 
-  @ApiProperty({ example: 'e32a1320-3f6f-456a-bcd8-159b6527076d', required: false })
+  @ApiProperty({
+    example: 'e32a1320-3f6f-456a-bcd8-159b6527076d',
+    required: false,
+  })
   @IsUUID()
   @IsOptional()
   materialId?: string
 
-  @ApiProperty({ example: 'e32a1320-3f6f-456a-bcd8-159b6527076d', required: false })
+  @ApiProperty({
+    example: 'e32a1320-3f6f-456a-bcd8-159b6527076d',
+    required: false,
+  })
   @IsUUID()
   @IsOptional()
   styleId?: string
 
-  @ApiProperty({ example: 'e32a1320-3f6f-456a-bcd8-159b6527076d', required: false })
+  @ApiProperty({
+    example: 'e32a1320-3f6f-456a-bcd8-159b6527076d',
+    required: false,
+  })
   @IsUUID()
   @IsOptional()
   seasonId?: string

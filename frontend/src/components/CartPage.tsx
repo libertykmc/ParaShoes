@@ -4,7 +4,7 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 
 export interface CartItem {
   id: string;
-  productId: string;
+  modelId: string;
   name: string;
   price: number;
   image: string;

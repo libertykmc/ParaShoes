@@ -1,15 +1,15 @@
 import { ArrowRight } from 'lucide-react';
 import { Button } from './ui/button';
 import { ProductCard } from './ProductCard';
-import { Product } from '../data/products';
+import { FrontendProduct } from '../api/api';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface HomePageProps {
-  products: Product[];
+  products: FrontendProduct[];
   onNavigate: (page: string) => void;
-  onAddToCart: (productId: string) => void;
-  onToggleFavorite: (productId: string) => void;
-  onViewProduct: (productId: string) => void;
+  onAddToCart: (modelId: string) => void;
+  onToggleFavorite: (modelId: string) => void;
+  onViewProduct: (modelId: string) => void;
   favorites: Set<string>;
 }
 

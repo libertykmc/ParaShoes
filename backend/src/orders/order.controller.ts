@@ -1,27 +1,27 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Delete,
-  Param,
   Body,
-  UseGuards,
-  Request,
+  Controller,
+  Delete,
+  Get,
+  Param,
   ParseUUIDPipe,
+  Patch,
+  Post,
+  Request,
+  UseGuards,
 } from '@nestjs/common'
 import {
-  ApiTags,
-  ApiOkResponse,
-  ApiCreatedResponse,
-  ApiParam,
   ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiParam,
+  ApiTags,
 } from '@nestjs/swagger'
-import { OrdersService } from './order.service'
-import { Order } from './order.entity'
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'
 import { CreateOrderDto } from './dto/create-order.dto'
 import { UpdateOrderDto } from './dto/update-order.dto'
+import { Order } from './order.entity'
+import { OrdersService } from './order.service'
 
 @ApiTags('orders')
 @Controller('orders')
@@ -31,9 +31,8 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @Get()
-  @ApiOkResponse({ type: [Order], description: 'Список всех заказов' })
+  @ApiOkResponse({ type: [Order], description: 'Список заказов' })
   findAll(@Request() req) {
-    // Админы видят все заказы, пользователи - только свои
     const userId = req.user.role === 'Администратор' ? undefined : req.user.userId
     return this.ordersService.findAll(userId)
   }
@@ -81,8 +80,9 @@ export class OrdersController {
   @ApiBearerAuth()
   @Delete(':id')
   @ApiOkResponse({ description: 'Заказ удален' })
-  remove(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.ordersService.remove(id)
+  remove(@Param('id', new ParseUUIDPipe()) id: string, @Request() req) {
+    const userId = req.user.role === 'Администратор' ? undefined : req.user.userId
+    return this.ordersService.remove(id, userId)
   }
 }
 

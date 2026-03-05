@@ -1,20 +1,23 @@
-﻿import { useState, useEffect } from 'react';
-import { Header } from './components/Header';
-import { Footer } from './components/Footer';
-import { HomePage } from './components/HomePage';
-import { CatalogPage } from './components/CatalogPage';
-import { ProductPage } from './components/ProductPage';
-import { CartPage, CartItem } from './components/CartPage';
-import { CheckoutPage, OrderData } from './components/CheckoutPage';
-import { ProfilePage } from './components/ProfilePage';
-import { AdminPage } from './components/AdminPage';
-import { mockOrders } from './data/products';
-import { fetchProducts, FrontendProduct } from './api/api';
-import { LoginPage } from './components/LoginPage';
-import { RegisterPage } from './components/RegisterPage';
-import { fetchCurrentUser, FrontendUser, getToken, setToken } from './api/auth';
-import { Toaster } from './components/ui/sonner';
-import { toast } from 'sonner';
+import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
+import { fetchProducts, FrontendProduct } from './api/api'
+import { fetchCurrentUser, FrontendUser, getToken, setToken } from './api/auth'
+import { addToFavorites, fetchFavoriteIds, removeFromFavorites } from './api/favorites'
+import { createOrder, deleteOrder, fetchOrders, FrontendOrder } from './api/orders'
+import { AboutPage } from './components/AboutPage'
+import { AdminPage } from './components/AdminPage'
+import { CartPage, CartItem } from './components/CartPage'
+import { CatalogPage } from './components/CatalogPage'
+import { CheckoutPage, OrderData } from './components/CheckoutPage'
+import { FavoritesPage } from './components/FavoritesPage'
+import { Footer } from './components/Footer'
+import { Header } from './components/Header'
+import { HomePage } from './components/HomePage'
+import { LoginPage } from './components/LoginPage'
+import { ProductPage } from './components/ProductPage'
+import { ProfilePage } from './components/ProfilePage'
+import { RegisterPage } from './components/RegisterPage'
+import { Toaster } from './components/ui/sonner'
 
 type Page =
   | 'home'
@@ -25,160 +28,320 @@ type Page =
   | 'profile'
   | 'admin'
   | 'about'
-  | 'contacts'
   | 'favorites'
   | 'login'
-  | 'register';
+  | 'register'
 
 export default function App() {
-  const [currentPage, setCurrentPage] = useState<Page>('home');
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
-  const [products, setProducts] = useState<FrontendProduct[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<FrontendUser | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+  const [currentPage, setCurrentPage] = useState<Page>('home')
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
+  const [cartItems, setCartItems] = useState<CartItem[]>([])
+  const [favorites, setFavorites] = useState<Set<string>>(new Set())
+  const [products, setProducts] = useState<FrontendProduct[]>([])
+  const [isLoading, setIsLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string | null>(null)
+  const [currentUser, setCurrentUser] = useState<FrontendUser | null>(null)
+  const [orders, setOrders] = useState<FrontendOrder[]>([])
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null)
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true)
+
+  const reloadProducts = async (): Promise<void> => {
+    const fetchedProducts = await fetchProducts()
+    setProducts(fetchedProducts)
+  }
+
+  useEffect(() => {
+    const loadFavorites = async () => {
+      if (!currentUser) {
+        setFavorites(new Set())
+        return
+      }
+
+      try {
+        const ids = await fetchFavoriteIds()
+        setFavorites(new Set(ids))
+      } catch (favoritesError) {
+        console.error('Error loading favorites:', favoritesError)
+        setFavorites(new Set())
+      }
+    }
+
+    void loadFavorites()
+  }, [currentUser])
 
   useEffect(() => {
     const init = async () => {
       try {
-        setIsLoading(true);
-        setError(null);
+        setIsLoading(true)
+        setError(null)
 
-        // Загружаем текущего пользователя, если есть токен
-        const token = getToken();
+        const token = getToken()
         if (token) {
           try {
-            const user = await fetchCurrentUser();
-            setCurrentUser(user);
+            const user = await fetchCurrentUser()
+            setCurrentUser(user)
           } catch (authError) {
-            console.error('Error loading current user:', authError);
-            setToken(null);
+            console.error('Error loading current user:', authError)
+            setToken(null)
           }
         }
-        setIsAuthLoading(false);
+        setIsAuthLoading(false)
 
-        // Загружаем товары
-        const fetchedProducts = await fetchProducts();
-        setProducts(fetchedProducts);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Не удалось загрузить товары';
-        setError(errorMessage);
-        toast.error('Ошибка загрузки товаров');
-        console.error('Error loading products:', err);
+        await reloadProducts()
+      } catch (initError) {
+        const errorMessage =
+          initError instanceof Error ? initError.message : 'Не удалось загрузить товары'
+        setError(errorMessage)
+        toast.error('Ошибка загрузки товаров')
+        console.error('Error loading products:', initError)
       } finally {
-        setIsLoading(false);
+        setIsLoading(false)
       }
-    };
+    }
 
-    init();
-  }, []);
+    void init()
+  }, [])
+
+  useEffect(() => {
+    const loadOrders = async () => {
+      if (!currentUser) {
+        setOrders([])
+        return
+      }
+
+      try {
+        const userOrders = await fetchOrders()
+        setOrders(userOrders)
+      } catch (ordersError) {
+        const message =
+          ordersError instanceof Error ? ordersError.message : 'Не удалось загрузить заказы'
+        toast.error(message)
+        console.error('Error loading orders:', ordersError)
+      }
+    }
+
+    void loadOrders()
+  }, [currentUser])
 
   const handleNavigate = (page: string) => {
-    setCurrentPage(page as Page);
-    window.scrollTo(0, 0);
-  };
+    setCurrentPage(page as Page)
+    window.scrollTo(0, 0)
+  }
 
-  const handleViewProduct = (productId: string) => {
-    setSelectedProductId(productId);
-    setCurrentPage('product');
-    window.scrollTo(0, 0);
-  };
+  const handleViewProduct = (modelId: string) => {
+    setSelectedProductId(modelId)
+    setCurrentPage('product')
+    window.scrollTo(0, 0)
+  }
 
-  const handleAddToCart = (productId: string, size?: number) => {
-    const product = products.find(p => p.id === productId);
-    if (!product) return;
-
-    const selectedSize = size || product.sizes[0];
-    if (!selectedSize || !product.sizes.includes(selectedSize)) {
-      toast.error('Size is not available');
-      return;
+  const handleAddToCart = (modelId: string, size?: number) => {
+    const product = products.find((item) => item.id === modelId)
+    if (!product) {
+      return
     }
+
+    const selectedSizeInfo = size
+      ? product.sizes.find((item) => item.size === size)
+      : product.sizes.find((item) => item.available)
+
+    if (!selectedSizeInfo || !selectedSizeInfo.available) {
+      toast.error('Выбранный размер недоступен')
+      return
+    }
+
+    const selectedSize = selectedSizeInfo.size
     const existingItem = cartItems.find(
-      item => item.productId === productId && item.size === selectedSize
-    );
+      (item) => item.modelId === modelId && item.size === selectedSize,
+    )
+    const nextQuantity = (existingItem?.quantity || 0) + 1
+
+    if (nextQuantity > selectedSizeInfo.stock) {
+      toast.error('Недостаточно остатка для выбранного размера')
+      return
+    }
 
     if (existingItem) {
-      setCartItems(cartItems.map(item =>
-        item.id === existingItem.id
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
-      ));
-      toast.success('Количество товара увеличено');
-    } else {
-      const newItem: CartItem = {
-        id: `cart-${Date.now()}-${productId}`,
-        productId,
-        name: product.name,
-        price: product.price,
-        image: product.image,
-        size: selectedSize,
-        quantity: 1
-      };
-      setCartItems([...cartItems, newItem]);
-      toast.success('Товар добавлен в корзину');
+      setCartItems(
+        cartItems.map((item) =>
+          item.id === existingItem.id ? { ...item, quantity: nextQuantity } : item,
+        ),
+      )
+      toast.success('Количество товара увеличено')
+      return
     }
-  };
 
-  const handleToggleFavorite = (productId: string) => {
-    setFavorites(prev => {
-      const newFavorites = new Set(prev);
-      if (newFavorites.has(productId)) {
-        newFavorites.delete(productId);
-        toast.info('Товар удален из избранного');
-      } else {
-        newFavorites.add(productId);
-        toast.success('Товар добавлен в избранное');
+    const newItem: CartItem = {
+      id: `cart-${Date.now()}-${modelId}-${selectedSize}`,
+      modelId,
+      name: product.name,
+      price: product.price,
+      image: product.image,
+      size: selectedSize,
+      quantity: 1,
+    }
+
+    setCartItems([...cartItems, newItem])
+    toast.success('Товар добавлен в корзину')
+  }
+
+  const handleToggleFavorite = (modelId: string) => {
+    if (!currentUser) {
+      toast.info('Войдите в аккаунт, чтобы использовать избранное')
+      setCurrentPage('login')
+      return
+    }
+
+    const toggle = async () => {
+      try {
+        if (favorites.has(modelId)) {
+          await removeFromFavorites(modelId)
+          setFavorites((prev) => {
+            const next = new Set(prev)
+            next.delete(modelId)
+            return next
+          })
+          toast.info('Товар удален из избранного')
+        } else {
+          await addToFavorites(modelId)
+          setFavorites((prev) => {
+            const next = new Set(prev)
+            next.add(modelId)
+            return next
+          })
+          toast.success('Товар добавлен в избранное')
+        }
+      } catch (toggleError) {
+        const message =
+          toggleError instanceof Error ? toggleError.message : 'Ошибка обновления избранного'
+        toast.error(message)
+        console.error('Error toggling favorites:', toggleError)
       }
-      return newFavorites;
-    });
-  };
+    }
+
+    void toggle()
+  }
 
   const handleUpdateQuantity = (id: string, quantity: number) => {
-    setCartItems(cartItems.map(item =>
-      item.id === id ? { ...item, quantity } : item
-    ));
-  };
+    const cartItem = cartItems.find((item) => item.id === id)
+    if (!cartItem) {
+      return
+    }
+
+    const product = products.find((item) => item.id === cartItem.modelId)
+    const sizeInfo = product?.sizes.find((sizeItem) => sizeItem.size === cartItem.size)
+    if (!sizeInfo || !sizeInfo.available) {
+      toast.error('Выбранный размер больше недоступен')
+      return
+    }
+
+    const normalizedQuantity = Math.max(1, quantity)
+    if (normalizedQuantity > sizeInfo.stock) {
+      toast.error('Недостаточно остатка для выбранного размера')
+      return
+    }
+
+    setCartItems(
+      cartItems.map((item) =>
+        item.id === id ? { ...item, quantity: normalizedQuantity } : item,
+      ),
+    )
+  }
 
   const handleRemoveItem = (id: string) => {
-    setCartItems(cartItems.filter(item => item.id !== id));
-    toast.info('Товар удален из корзины');
-  };
+    setCartItems(cartItems.filter((item) => item.id !== id))
+    toast.info('Товар удален из корзины')
+  }
 
   const handleCheckout = () => {
-    setCurrentPage('checkout');
-    window.scrollTo(0, 0);
-  };
+    if (!currentUser) {
+      toast.info('Войдите в аккаунт, чтобы оформить заказ')
+      setCurrentPage('login')
+      return
+    }
 
-  const handleConfirmOrder = (orderData: OrderData) => {
-    console.log('Order confirmed:', orderData, cartItems);
-    setCartItems([]);
-  };
+    if (cartItems.length === 0) {
+      toast.error('Корзина пуста')
+      return
+    }
+
+    setCurrentPage('checkout')
+    window.scrollTo(0, 0)
+  }
+
+  const handleConfirmOrder = async (orderData: OrderData): Promise<string> => {
+    if (!currentUser) {
+      throw new Error('Требуется авторизация')
+    }
+
+    if (cartItems.length === 0) {
+      throw new Error('Корзина пуста')
+    }
+
+    const createdOrder = await createOrder({
+      deliveryAddress: orderData.address.trim(),
+      items: cartItems.map((item) => ({
+        modelId: item.modelId,
+        size: item.size,
+        quantity: item.quantity,
+        price: item.price,
+      })),
+    })
+
+    setOrders((prev) => [createdOrder, ...prev])
+    setCartItems([])
+    await reloadProducts()
+    toast.success('Заказ оформлен')
+    return createdOrder.id
+  }
+
+  const handleCancelOrder = async (orderId: string): Promise<void> => {
+    const hasConfirmed = window.confirm('Отменить и удалить этот заказ?')
+    if (!hasConfirmed) {
+      return
+    }
+
+    try {
+      setCancellingOrderId(orderId)
+      await deleteOrder(orderId)
+      setOrders((prev) => prev.filter((order) => order.id !== orderId))
+      await reloadProducts()
+      toast.success('Заказ отменен')
+    } catch (cancelError) {
+      const message =
+        cancelError instanceof Error ? cancelError.message : 'Не удалось отменить заказ'
+      toast.error(message)
+      console.error('Error cancelling order:', cancelError)
+    } finally {
+      setCancellingOrderId(null)
+    }
+  }
 
   const handleBackFromCheckout = () => {
-    setCurrentPage('cart');
-    window.scrollTo(0, 0);
-  };
+    setCurrentPage('cart')
+    window.scrollTo(0, 0)
+  }
 
   const handleLogout = () => {
-    setToken(null);
-    setCurrentUser(null);
-    toast.info('Вы вышли из аккаунта');
-    setCurrentPage('home');
-  };
+    setToken(null)
+    setCurrentUser(null)
+    setFavorites(new Set())
+    toast.info('Вы вышли из аккаунта')
+    setCurrentPage('home')
+  }
 
   const selectedProduct = selectedProductId
-    ? products.find(p => p.id === selectedProductId)
-    : null;
+    ? products.find((item) => item.id === selectedProductId)
+    : null
 
   const relatedProducts = selectedProduct
-    ? products.filter(p => 
-        p.id !== selectedProduct.id && 
-        (p.category === selectedProduct.category || p.style === selectedProduct.style)
-      ).slice(0, 4)
-    : [];
+    ? products
+        .filter(
+          (item) =>
+            item.id !== selectedProduct.id &&
+            (item.category === selectedProduct.category || item.style === selectedProduct.style),
+        )
+        .slice(0, 4)
+    : []
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -194,7 +357,7 @@ export default function App() {
         {(isLoading || isAuthLoading) && (
           <div className="min-h-screen bg-gray-50 flex items-center justify-center">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4" />
               <p className="text-gray-600">Загрузка...</p>
             </div>
           </div>
@@ -218,7 +381,9 @@ export default function App() {
           <>
             {currentPage === 'login' && (
               <LoginPage
-                onLoginSuccess={(user) => setCurrentUser(user)}
+                onLoginSuccess={(user) => {
+                  setCurrentUser(user)
+                }}
                 onNavigateToRegister={() => setCurrentPage('register')}
                 onBack={() => setCurrentPage('home')}
               />
@@ -226,7 +391,9 @@ export default function App() {
 
             {currentPage === 'register' && (
               <RegisterPage
-                onRegisterSuccess={(user) => setCurrentUser(user)}
+                onRegisterSuccess={(user) => {
+                  setCurrentUser(user)
+                }}
                 onNavigateToLogin={() => setCurrentPage('login')}
                 onBack={() => setCurrentPage('home')}
               />
@@ -281,69 +448,51 @@ export default function App() {
                 items={cartItems}
                 onBack={handleBackFromCheckout}
                 onConfirm={handleConfirmOrder}
+                initialOrderData={{
+                  fullName: currentUser?.name || '',
+                  phone: currentUser?.phone || '',
+                  address: currentUser?.address || '',
+                  email: currentUser?.email || '',
+                }}
               />
             )}
 
-            {currentPage === 'profile' && (
-              currentUser ? (
+            {currentPage === 'profile' &&
+              (currentUser ? (
                 <ProfilePage
                   user={currentUser}
-                  orders={mockOrders}
+                  orders={orders}
+                  onCancelOrder={handleCancelOrder}
+                  cancellingOrderId={cancellingOrderId}
                 />
               ) : (
                 <LoginPage
                   onLoginSuccess={(user) => {
-                    setCurrentUser(user);
-                    setCurrentPage('profile');
+                    setCurrentUser(user)
+                    setCurrentPage('profile')
                   }}
                   onNavigateToRegister={() => setCurrentPage('register')}
                   onBack={() => setCurrentPage('home')}
                 />
-              )
-            )}
+              ))}
 
             {currentPage === 'admin' && (
               <AdminPage
                 products={products}
-                orders={mockOrders}
+                orders={orders}
                 users={currentUser ? [currentUser] : []}
               />
             )}
 
             {currentPage === 'favorites' && (
-              <div className="min-h-screen bg-gray-50">
-                <div className="max-w-[1440px] mx-auto px-6 py-8">
-                  <h1 className="text-gray-900 mb-8">Избранное</h1>
-                  {favorites.size === 0 ? (
-                    <div className="text-center py-16">
-                      <p className="text-gray-500 mb-4">Список избранного пуст</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                      {products
-                        .filter(p => favorites.has(p.id))
-                        .map(product => (
-                          <div key={product.id} className="bg-white rounded-xl p-4 border border-gray-200">
-                            <h3 className="text-gray-900 mb-2">{product.name}</h3>
-                            <p className="text-gray-600">{product.price.toLocaleString('ru-RU')} ₽</p>
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </div>
-              </div>
+              <FavoritesPage
+                products={products}
+                favorites={favorites}
+                onViewProduct={handleViewProduct}
+              />
             )}
 
-            {(currentPage === 'about' || currentPage === 'contacts') && (
-              <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                  <h1 className="text-gray-900 mb-4">
-                    {currentPage === 'about' ? 'О нас' : 'Контакты'}
-                  </h1>
-                  <p className="text-gray-600">Эта страница в разработке</p>
-                </div>
-              </div>
-            )}
+            {currentPage === 'about' && <AboutPage />}
           </>
         )}
       </main>
@@ -351,5 +500,5 @@ export default function App() {
       <Footer />
       <Toaster position="bottom-right" />
     </div>
-  );
+  )
 }

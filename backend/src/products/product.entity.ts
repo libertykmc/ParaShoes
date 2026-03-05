@@ -1,18 +1,18 @@
-﻿import {
-  Entity,
-  PrimaryGeneratedColumn,
+import { ApiProperty } from '@nestjs/swagger'
+import {
   Column,
   CreateDateColumn,
-  ManyToOne,
+  Entity,
   JoinColumn,
+  ManyToOne,
   OneToMany,
+  PrimaryGeneratedColumn,
 } from 'typeorm'
-import { ApiProperty } from '@nestjs/swagger'
 import { ProductCategory } from '../categories/category.entity'
 import { ProductMaterial } from '../material/product-material.entity'
-import { ProductStyle } from '../style/product-style.entity'
 import { ProductSeason } from '../season/product-season.entity'
-import { ProductItem } from '../product-items/product-item.entity'
+import { ProductStyle } from '../style/product-style.entity'
+import { ModelSizeStock } from './model-size-stock.entity'
 
 @Entity('model')
 export class Model {
@@ -39,10 +39,6 @@ export class Model {
   @ApiProperty({ example: 'https://cdn.parashoes.com/nike.jpg' })
   @Column({ nullable: true })
   image?: string
-
-  @ApiProperty({ example: 50 })
-  @Column({ type: 'int', default: 0 })
-  quantityInStock: number
 
   @ApiProperty({ description: 'Category id', required: false })
   @Column({ name: 'category_id', nullable: true })
@@ -84,10 +80,14 @@ export class Model {
   @JoinColumn({ name: 'season_id' })
   season?: ProductSeason
 
-  @OneToMany(() => ProductItem, (product) => product.model)
-  products: ProductItem[]
+  @ApiProperty({ type: () => [ModelSizeStock] })
+  @OneToMany(() => ModelSizeStock, (sizeStock) => sizeStock.model, {
+    cascade: true,
+  })
+  sizes: ModelSizeStock[]
 
   @ApiProperty()
   @CreateDateColumn()
   createdAt: Date
 }
+

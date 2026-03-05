@@ -1,5 +1,5 @@
-import { Mail, Phone, MapPin, Facebook, Instagram, Twitter } from 'lucide-react';
-
+import { Mail, Phone, MapPin, Instagram } from 'lucide-react';
+import logo from '../assets/images/logo.png'
 export function Footer() {
   return (
     <footer className="bg-gray-900 text-gray-300 mt-auto">
@@ -8,10 +8,7 @@ export function Footer() {
           {/* About */}
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-amber-700 to-amber-900 rounded-lg flex items-center justify-center">
-                <span className="text-white">PS</span>
-              </div>
-              <span className="text-white tracking-tight">ParaShoes</span>
+              <img src={logo} style={{width:"100px"}} />
             </div>
             <p className="text-sm text-gray-400">
               Премиальная кожаная обувь для ценителей качества и стиля.

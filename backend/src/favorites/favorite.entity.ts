@@ -4,12 +4,14 @@
   Column,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm'
 import { ApiProperty } from '@nestjs/swagger'
 import { User } from '../users/user.entity'
 import { Model } from '../products/product.entity'
 
 @Entity('favorites')
+@Index(['userId', 'productId'], { unique: true })
 export class Favorite {
   @ApiProperty({ example: 'e32a1320-3f6f-456a-bcd8-159b6527076d' })
   @PrimaryGeneratedColumn('uuid')

@@ -1,28 +1,31 @@
-﻿import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository } from 'typeorm'
-import { Order, OrderStatus } from './order.entity'
-import { OrderItem } from './order-item.entity'
+import { DataSource, EntityManager, Repository } from 'typeorm'
+import { ModelSizeStock } from '../products/model-size-stock.entity'
+import { Model } from '../products/product.entity'
 import { CreateOrderDto } from './dto/create-order.dto'
 import { UpdateOrderDto } from './dto/update-order.dto'
-import { Model } from '../products/product.entity'
+import { OrderItem } from './order-item.entity'
+import { Order, OrderStatus } from './order.entity'
 
 @Injectable()
 export class OrdersService {
   constructor(
     @InjectRepository(Order)
     private readonly ordersRepo: Repository<Order>,
-    @InjectRepository(OrderItem)
-    private readonly orderItemsRepo: Repository<OrderItem>,
-    @InjectRepository(Model)
-    private readonly productsRepo: Repository<Model>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async findAll(userId?: string): Promise<Order[]> {
     const where = userId ? { userId } : {}
     return this.ordersRepo.find({
       where,
-      relations: ['orderItems', 'orderItems.product', 'user'],
+      relations: ['orderItems', 'orderItems.model', 'user'],
       order: { orderDate: 'DESC' },
     })
   }
@@ -30,60 +33,113 @@ export class OrdersService {
   async findById(id: string, userId?: string): Promise<Order> {
     const order = await this.ordersRepo.findOne({
       where: { id },
-      relations: ['orderItems', 'orderItems.product', 'user'],
+      relations: ['orderItems', 'orderItems.model', 'user'],
     })
-    if (!order) throw new NotFoundException(`Заказ с id ${id} не найден`)
+
+    if (!order) {
+      throw new NotFoundException(`Заказ с id ${id} не найден`)
+    }
     if (userId && order.userId !== userId) {
       throw new ForbiddenException('Нет доступа к этому заказу')
     }
+
     return order
   }
 
   async create(userId: string, dto: CreateOrderDto): Promise<Order> {
-    let totalAmount = 0
+    if (!dto.items || dto.items.length === 0) {
+      throw new BadRequestException('Заказ должен содержать минимум один товар')
+    }
 
-    for (const item of dto.items) {
-      const product = await this.productsRepo.findOneBy({ id: item.productId })
-      if (!product) {
-        throw new NotFoundException(`Товар с id ${item.productId} не найден`)
+    return this.dataSource.transaction(async (manager) => {
+      const modelRepo = manager.getRepository(Model)
+      const orderRepo = manager.getRepository(Order)
+      const orderItemRepo = manager.getRepository(OrderItem)
+      const sizeStockRepo = manager.getRepository(ModelSizeStock)
+
+      let totalAmount = 0
+      const lockedSizeStocks = new Map<string, ModelSizeStock>()
+      const reservedByKey = new Map<string, number>()
+
+      for (const item of dto.items) {
+        if (item.size < 35 || item.size > 45) {
+          throw new BadRequestException(
+            `Размер ${item.size} вне допустимого диапазона 35-45`,
+          )
+        }
+
+        const model = await modelRepo.findOneBy({ id: item.modelId })
+        if (!model) {
+          throw new NotFoundException(`Модель с id ${item.modelId} не найдена`)
+        }
+
+        const lockKey = `${item.modelId}:${item.size}`
+        let sizeStock = lockedSizeStocks.get(lockKey)
+
+        if (!sizeStock) {
+          const lockedSizeStock = await sizeStockRepo
+            .createQueryBuilder('sizeStock')
+            .setLock('pessimistic_write')
+            .where('sizeStock.model_id = :modelId', { modelId: item.modelId })
+            .andWhere('sizeStock.size = :size', { size: item.size })
+            .getOne()
+
+          if (!lockedSizeStock) {
+            throw new BadRequestException(
+              `Размер ${item.size} для модели ${model.name} отсутствует`,
+            )
+          }
+
+          sizeStock = lockedSizeStock
+          lockedSizeStocks.set(lockKey, sizeStock)
+        }
+
+        const reservedQuantity = (reservedByKey.get(lockKey) || 0) + item.quantity
+        if (sizeStock.stock < reservedQuantity) {
+          throw new BadRequestException(
+            `Недостаточно остатка для модели ${model.name}, размер ${item.size}`,
+          )
+        }
+
+        reservedByKey.set(lockKey, reservedQuantity)
+        totalAmount += item.price * item.quantity
       }
-      if (product.quantityInStock < item.quantity) {
-        throw new NotFoundException(
-          `Недостаточно товара ${product.name} на складе`,
+
+      const order = await orderRepo.save(
+        orderRepo.create({
+          userId,
+          deliveryAddress: dto.deliveryAddress,
+          totalAmount,
+          status: OrderStatus.ACCEPTED,
+        }),
+      )
+
+      for (const item of dto.items) {
+        await orderItemRepo.save(
+          orderItemRepo.create({
+            orderId: order.id,
+            modelId: item.modelId,
+            size: item.size,
+            quantity: item.quantity,
+            price: item.price,
+          }),
         )
+
+        const lockKey = `${item.modelId}:${item.size}`
+        const sizeStock = lockedSizeStocks.get(lockKey)
+        if (!sizeStock) {
+          throw new BadRequestException('Ошибка списания остатка')
+        }
+
+        sizeStock.stock -= item.quantity
+        await sizeStockRepo.save(sizeStock)
       }
-      totalAmount += item.price * item.quantity
-    }
 
-    const order = this.ordersRepo.create({
-      userId,
-      deliveryAddress: dto.deliveryAddress,
-      totalAmount,
-      status: OrderStatus.ACCEPTED,
-    })
-    const savedOrder = await this.ordersRepo.save(order)
-
-    const orderItems: OrderItem[] = []
-    for (const item of dto.items) {
-      const orderItem = this.orderItemsRepo.create({
-        orderId: savedOrder.id,
-        productId: item.productId,
-        quantity: item.quantity,
-        price: item.price,
+      return orderRepo.findOneOrFail({
+        where: { id: order.id },
+        relations: ['orderItems', 'orderItems.model', 'user'],
       })
-      const savedOrderItem = await this.orderItemsRepo.save(orderItem)
-
-      const product = await this.productsRepo.findOneBy({ id: item.productId })
-      if (!product) {
-        throw new NotFoundException(`Товар с id ${item.productId} не найден`)
-      }
-      product.quantityInStock -= item.quantity
-      await this.productsRepo.save(product)
-
-      orderItems.push(savedOrderItem)
-    }
-
-    return this.findById(savedOrder.id)
+    })
   }
 
   async update(id: string, dto: UpdateOrderDto, userId?: string): Promise<Order> {
@@ -93,25 +149,81 @@ export class OrdersService {
   }
 
   async cancel(id: string, userId: string): Promise<Order> {
-    const order = await this.findById(id, userId)
-    if (order.status === OrderStatus.COMPLETED) {
-      throw new ForbiddenException('Нельзя отменить выполненный заказ')
+    return this.dataSource.transaction(async (manager) => {
+      const order = await this.getOrderWithItems(manager, id, userId)
+
+      if (order.status === OrderStatus.COMPLETED) {
+        throw new ForbiddenException('Нельзя отменить выполненный заказ')
+      }
+
+      if (order.status !== OrderStatus.CANCELLED) {
+        await this.restoreOrderStock(manager, order)
+      }
+
+      order.status = OrderStatus.CANCELLED
+      await manager.getRepository(Order).save(order)
+
+      return this.getOrderWithItems(manager, id, userId)
+    })
+  }
+
+  async remove(id: string, userId?: string): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      const order = await this.getOrderWithItems(manager, id, userId)
+
+      if (
+        order.status !== OrderStatus.CANCELLED &&
+        order.status !== OrderStatus.COMPLETED
+      ) {
+        await this.restoreOrderStock(manager, order)
+      }
+
+      await manager.getRepository(Order).remove(order)
+    })
+  }
+
+  private async getOrderWithItems(
+    manager: EntityManager,
+    id: string,
+    userId?: string,
+  ): Promise<Order> {
+    const order = await manager.getRepository(Order).findOne({
+      where: { id },
+      relations: ['orderItems', 'orderItems.model', 'user'],
+    })
+
+    if (!order) {
+      throw new NotFoundException(`Заказ с id ${id} не найден`)
     }
-    order.status = OrderStatus.CANCELLED
+    if (userId && order.userId !== userId) {
+      throw new ForbiddenException('Нет доступа к этому заказу')
+    }
+
+    return order
+  }
+
+  private async restoreOrderStock(manager: EntityManager, order: Order): Promise<void> {
+    const sizeStockRepo = manager.getRepository(ModelSizeStock)
 
     for (const item of order.orderItems) {
-      const product = await this.productsRepo.findOneBy({ id: item.productId })
-      if (product) {
-        product.quantityInStock += item.quantity
-        await this.productsRepo.save(product)
+      let sizeStock = await sizeStockRepo
+        .createQueryBuilder('sizeStock')
+        .setLock('pessimistic_write')
+        .where('sizeStock.model_id = :modelId', { modelId: item.modelId })
+        .andWhere('sizeStock.size = :size', { size: item.size })
+        .getOne()
+
+      if (!sizeStock) {
+        sizeStock = sizeStockRepo.create({
+          modelId: item.modelId,
+          size: item.size,
+          stock: 0,
+        })
       }
+
+      sizeStock.stock += item.quantity
+      await sizeStockRepo.save(sizeStock)
     }
-
-    return this.ordersRepo.save(order)
-  }
-
-  async remove(id: string): Promise<void> {
-    const order = await this.findById(id)
-    await this.ordersRepo.remove(order)
   }
 }
+

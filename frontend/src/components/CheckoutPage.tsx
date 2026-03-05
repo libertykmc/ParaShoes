@@ -1,15 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { CartItem } from './CartPage';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
-import { ArrowLeft, CheckCircle2 } from 'lucide-react';
-import { CartItem } from './CartPage';
 
 interface CheckoutPageProps {
   items: CartItem[];
   onBack: () => void;
-  onConfirm: (orderData: OrderData) => void;
+  onConfirm: (orderData: OrderData) => Promise<string>;
+  initialOrderData?: Partial<OrderData>;
 }
 
 export interface OrderData {
@@ -19,30 +21,75 @@ export interface OrderData {
   email: string;
 }
 
-export function CheckoutPage({ items, onBack, onConfirm }: CheckoutPageProps) {
+export function CheckoutPage({
+  items,
+  onBack,
+  onConfirm,
+  initialOrderData,
+}: CheckoutPageProps) {
   const [formData, setFormData] = useState<OrderData>({
-    fullName: '',
-    phone: '',
-    address: '',
-    email: ''
+    fullName: initialOrderData?.fullName || '',
+    phone: initialOrderData?.phone || '',
+    address: initialOrderData?.address || '',
+    email: initialOrderData?.email || '',
   });
-
   const [submitted, setSubmitted] = useState(false);
+  const [submittedOrderId, setSubmittedOrderId] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const shipping = 500;
   const total = subtotal + shipping;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onConfirm(formData);
-    setSubmitted(true);
+  useEffect(() => {
+    if (!initialOrderData) {
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      fullName: prev.fullName || initialOrderData.fullName || '',
+      phone: prev.phone || initialOrderData.phone || '',
+      address: prev.address || initialOrderData.address || '',
+      email: prev.email || initialOrderData.email || '',
+    }));
+  }, [initialOrderData]);
+
+  const handleSubmit = async (event?: React.FormEvent) => {
+    event?.preventDefault();
+
+    if (isSubmitting) {
+      return;
+    }
+
+    const hasRequiredData =
+      formData.fullName.trim() &&
+      formData.phone.trim() &&
+      formData.email.trim() &&
+      formData.address.trim();
+
+    if (!hasRequiredData) {
+      toast.error('Заполните обязательные поля');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const orderId = await onConfirm(formData);
+      setSubmittedOrderId(orderId);
+      setSubmitted(true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Не удалось оформить заказ';
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData(prev => ({
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value
+      [event.target.name]: event.target.value,
     }));
   };
 
@@ -53,18 +100,15 @@ export function CheckoutPage({ items, onBack, onConfirm }: CheckoutPageProps) {
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 className="w-10 h-10 text-green-600" />
           </div>
-          <h2 className="text-gray-900 mb-3">Заказ оформлен!</h2>
+          <h2 className="text-gray-900 mb-3">Заказ оформлен</h2>
           <p className="text-gray-600 mb-6">
-            Спасибо за заказ! Мы свяжемся с вами в ближайшее время для подтверждения.
+            Спасибо за заказ. Мы свяжемся с вами в ближайшее время для подтверждения.
           </p>
           <p className="text-sm text-gray-500 mb-6">
-            Номер заказа: <span className="text-gray-900">ORD-{Date.now()}</span>
+            Номер заказа: <span className="text-gray-900">{submittedOrderId}</span>
           </p>
-          <Button
-            className="bg-amber-700 hover:bg-amber-800 w-full"
-            onClick={onBack}
-          >
-            Вернуться в каталог
+          <Button className="bg-amber-700 hover:bg-amber-800 w-full" onClick={onBack}>
+            Вернуться в корзину
           </Button>
         </div>
       </div>
@@ -74,11 +118,7 @@ export function CheckoutPage({ items, onBack, onConfirm }: CheckoutPageProps) {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-[1440px] mx-auto px-6 py-8">
-        <Button 
-          variant="ghost" 
-          onClick={onBack}
-          className="mb-6"
-        >
+        <Button variant="ghost" onClick={onBack} className="mb-6">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Назад к корзине
         </Button>
@@ -86,9 +126,8 @@ export function CheckoutPage({ items, onBack, onConfirm }: CheckoutPageProps) {
         <h1 className="text-gray-900 mb-8">Оформление заказа</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Form */}
           <div className="lg:col-span-2">
-            <form onSubmit={handleSubmit} className="bg-white rounded-xl p-6 border border-gray-200">
+            <form onSubmit={(event) => void handleSubmit(event)} className="bg-white rounded-xl p-6 border border-gray-200">
               <h2 className="text-gray-900 mb-6">Данные получателя</h2>
 
               <div className="space-y-4">
@@ -157,18 +196,17 @@ export function CheckoutPage({ items, onBack, onConfirm }: CheckoutPageProps) {
             </form>
           </div>
 
-          {/* Order Summary */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-xl p-6 border border-gray-200 sticky top-24">
               <h3 className="text-gray-900 mb-4">Ваш заказ</h3>
 
               <div className="space-y-3 mb-6 pb-6 border-b border-gray-200">
                 {items.map((item) => (
-                  <div key={item.id} className="flex justify-between text-sm">
+                  <div key={item.id} className="flex justify-between text-sm gap-2">
                     <span className="text-gray-600">
-                      {item.name} (размер {item.size}) × {item.quantity}
+                      {item.name} (размер {item.size}) x {item.quantity}
                     </span>
-                    <span className="text-gray-900">
+                    <span className="text-gray-900 whitespace-nowrap">
                       {(item.price * item.quantity).toLocaleString('ru-RU')} ₽
                     </span>
                   </div>
@@ -195,9 +233,10 @@ export function CheckoutPage({ items, onBack, onConfirm }: CheckoutPageProps) {
                 type="submit"
                 size="lg"
                 className="w-full bg-amber-700 hover:bg-amber-800"
-                onClick={handleSubmit}
+                disabled={isSubmitting}
+                onClick={() => void handleSubmit()}
               >
-                Подтвердить заказ
+                {isSubmitting ? 'Оформляем...' : 'Подтвердить заказ'}
               </Button>
 
               <p className="text-xs text-gray-500 mt-4 text-center">

@@ -1,6 +1,6 @@
 ﻿import { Injectable, NotFoundException, ConflictException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository } from 'typeorm'
+import { QueryFailedError, Repository } from 'typeorm'
 import { Favorite } from './favorite.entity'
 import { Model } from '../products/product.entity'
 
@@ -48,7 +48,18 @@ export class FavoritesService {
       userId,
       productId,
     })
-    return this.favoritesRepo.save(favorite)
+
+    try {
+      return await this.favoritesRepo.save(favorite)
+    } catch (error) {
+      if (
+        error instanceof QueryFailedError &&
+        (error as { code?: string }).code === '23505'
+      ) {
+        throw new ConflictException('Товар уже в избранном')
+      }
+      throw error
+    }
   }
 
   async removeFromFavorites(userId: string, productId: string): Promise<void> {

@@ -1,17 +1,17 @@
-﻿import { useEffect, useState } from 'react'
-import { ShoppingCart, Heart, ArrowLeft } from 'lucide-react'
-import { Button } from './ui/button'
-import { Badge } from './ui/badge'
-import { ProductCard } from './ProductCard'
+import { useEffect, useState } from 'react'
+import { ArrowLeft, Heart, ShoppingCart } from 'lucide-react'
+import { FrontendProduct } from '../api/api'
 import { ImageWithFallback } from './figma/ImageWithFallback'
-import { Product } from '../data/products'
+import { ProductCard } from './ProductCard'
+import { Badge } from './ui/badge'
+import { Button } from './ui/button'
 
 interface ProductPageProps {
-  product: Product
-  relatedProducts: Product[]
-  onAddToCart: (productId: string, size: number) => void
-  onToggleFavorite: (productId: string) => void
-  onViewProduct: (productId: string) => void
+  product: FrontendProduct
+  relatedProducts: FrontendProduct[]
+  onAddToCart: (modelId: string, size: number) => void
+  onToggleFavorite: (modelId: string) => void
+  onViewProduct: (modelId: string) => void
   onBack: () => void
   isFavorite: boolean
   favorites: Set<string>
@@ -36,9 +36,16 @@ export function ProductPage({
   }, [product.id])
 
   const handleAddToCart = () => {
-    if (selectedSize && product.sizes.includes(selectedSize)) {
-      onAddToCart(product.id, selectedSize)
+    if (!selectedSize) {
+      return
     }
+
+    const selectedSizeInfo = product.sizes.find((sizeItem) => sizeItem.size === selectedSize)
+    if (!selectedSizeInfo || !selectedSizeInfo.available) {
+      return
+    }
+
+    onAddToCart(product.id, selectedSize)
   }
 
   return (
@@ -54,7 +61,7 @@ export function ProductPage({
             <ImageWithFallback
               src={product.image}
               alt={product.name}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
             />
             {product.discount && (
               <Badge className="absolute top-4 left-4 bg-red-500 hover:bg-red-600">
@@ -67,9 +74,7 @@ export function ProductPage({
             <h1 className="text-gray-900 mb-4">{product.name}</h1>
 
             <div className="flex items-baseline gap-3 mb-6">
-              <span className="text-3xl text-gray-900">
-                {product.price.toLocaleString('ru-RU')} ₽
-              </span>
+              <span className="text-3xl text-gray-900">{product.price.toLocaleString('ru-RU')} ₽</span>
               {product.originalPrice && (
                 <span className="text-xl text-gray-400 line-through">
                   {product.originalPrice.toLocaleString('ru-RU')} ₽
@@ -112,10 +117,11 @@ export function ProductPage({
 
             <div className="mb-6">
               <h3 className="text-gray-900 mb-3">Выберите размер</h3>
-              <div className="grid grid-cols-6 sm:grid-cols-7 gap-2">
+              <div className="flex flex-wrap gap-2">
                 {ALL_SIZES.map((size) => {
-                  const isSizeAvailable = product.sizes.includes(size)
-                  const isDisabled = !product.inStock || !isSizeAvailable
+                  const sizeInfo = product.sizes.find((sizeItem) => sizeItem.size === size)
+                  const isAvailable = !!sizeInfo && sizeInfo.available
+                  const isDisabled = !product.inStock || !isAvailable
 
                   return (
                     <button
@@ -127,10 +133,11 @@ export function ProductPage({
                       }}
                       disabled={isDisabled}
                       className={`
-                        p-3 rounded-lg border-2 transition-all
+                        min-w-[52px] p-3 rounded-lg border-2 transition-all
                         ${selectedSize === size ? 'border-amber-700 bg-amber-50' : 'border-gray-200'}
                         ${isDisabled ? 'opacity-40 cursor-not-allowed bg-gray-100 text-gray-400' : 'cursor-pointer hover:border-gray-300'}
                       `}
+                      title={sizeInfo ? `Остаток: ${sizeInfo.stock}` : 'Нет в наличии'}
                     >
                       {size}
                     </button>
@@ -150,11 +157,7 @@ export function ProductPage({
                 Добавить в корзину
               </Button>
 
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => onToggleFavorite(product.id)}
-              >
+              <Button size="lg" variant="outline" onClick={() => onToggleFavorite(product.id)}>
                 <Heart className={`w-5 h-5 ${isFavorite ? 'fill-red-500 text-red-500' : ''}`} />
               </Button>
             </div>
@@ -173,9 +176,9 @@ export function ProductPage({
                 key={relatedProduct.id}
                 product={relatedProduct}
                 onAddToCart={(id) => {
-                  const defaultSize = relatedProduct.sizes[0]
+                  const defaultSize = relatedProduct.sizes.find((sizeItem) => sizeItem.available)
                   if (defaultSize) {
-                    onAddToCart(id, defaultSize)
+                    onAddToCart(id, defaultSize.size)
                   }
                 }}
                 onToggleFavorite={onToggleFavorite}
@@ -189,3 +192,4 @@ export function ProductPage({
     </div>
   )
 }
+

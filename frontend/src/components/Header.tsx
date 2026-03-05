@@ -1,4 +1,5 @@
-import { ShoppingCart, Heart, User, Menu, LogOut } from 'lucide-react';
+import { Heart, LogOut, Menu, ShoppingCart, User } from 'lucide-react';
+import logo from '../assets/images/logo.png';
 import { Button } from './ui/button';
 
 interface HeaderProps {
@@ -20,40 +21,28 @@ export function Header({
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-[1440px] mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
-          {/* Logo */}
-          <button 
+          <button
             onClick={() => onNavigate('home')}
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
-            <div className="w-10 h-10 bg-gradient-to-br from-amber-700 to-amber-900 rounded-lg flex items-center justify-center">
-              <span className="text-white">PS</span>
-            </div>
-            <span className="text-gray-900 tracking-tight">ParaShoes</span>
+            <img src={logo} style={{ width: '100px' }} />
           </button>
 
-          {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-8">
-            <button 
+            <button
               onClick={() => onNavigate('catalog')}
               className="text-gray-700 hover:text-gray-900 transition-colors"
             >
               Каталог
             </button>
-            <button 
+            <button
               onClick={() => onNavigate('about')}
               className="text-gray-700 hover:text-gray-900 transition-colors"
             >
               О нас
             </button>
-            <button 
-              onClick={() => onNavigate('contacts')}
-              className="text-gray-700 hover:text-gray-900 transition-colors"
-            >
-              Контакты
-            </button>
           </nav>
 
-          {/* Actions */}
           <div className="flex items-center gap-2 md:gap-4">
             <Button
               variant="ghost"
@@ -68,7 +57,7 @@ export function Header({
                 </span>
               )}
             </Button>
-            
+
             <Button
               variant="ghost"
               size="icon"
@@ -92,21 +81,12 @@ export function Header({
             </Button>
 
             {isAuthorized && onLogout && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onLogout}
-                title="Выйти"
-              >
+              <Button variant="ghost" size="icon" onClick={onLogout} title="Выйти">
                 <LogOut className="w-5 h-5" />
               </Button>
             )}
 
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-            >
+            <Button variant="ghost" size="icon" className="md:hidden">
               <Menu className="w-5 h-5" />
             </Button>
           </div>
@@ -115,3 +95,4 @@ export function Header({
     </header>
   );
 }
+
