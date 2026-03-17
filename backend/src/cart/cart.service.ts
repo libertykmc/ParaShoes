@@ -61,7 +61,8 @@ export class CartService {
 
     if (existingItem) {
       existingItem.quantity = nextQuantity
-      return this.cartRepo.save(existingItem)
+      const savedItem = await this.cartRepo.save(existingItem)
+      return this.findById(savedItem.id, userId)
     }
 
     const cartItem = this.cartRepo.create({
@@ -70,7 +71,8 @@ export class CartService {
       size: dto.size,
       quantity: dto.quantity,
     })
-    return this.cartRepo.save(cartItem)
+    const savedItem = await this.cartRepo.save(cartItem)
+    return this.findById(savedItem.id, userId)
   }
 
   async updateQuantity(
@@ -91,7 +93,8 @@ export class CartService {
     }
 
     cartItem.quantity = dto.quantity
-    return this.cartRepo.save(cartItem)
+    const savedItem = await this.cartRepo.save(cartItem)
+    return this.findById(savedItem.id, userId)
   }
 
   async removeFromCart(id: string, userId: string): Promise<void> {
@@ -103,4 +106,3 @@ export class CartService {
     await this.cartRepo.delete({ userId })
   }
 }
-

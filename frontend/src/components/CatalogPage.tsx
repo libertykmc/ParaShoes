@@ -59,6 +59,7 @@ export function CatalogPage({
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([])
   const [selectedStyles, setSelectedStyles] = useState<string[]>([])
   const [selectedSeasons, setSelectedSeasons] = useState<string[]>([])
+  const [selectedSizes, setSelectedSizes] = useState<number[]>([])
   const [priceRange, setPriceRange] = useState<number[]>([0, 30000])
 
   const categories = useMemo(
@@ -77,6 +78,19 @@ export function CatalogPage({
     () => buildFilterOptions(products, 'seasonId', 'season'),
     [products],
   )
+  const sizeOptions = useMemo(() => {
+    const uniqueSizes = new Set<number>()
+
+    for (const product of products) {
+      for (const size of product.sizes) {
+        if (size.available) {
+          uniqueSizes.add(size.size)
+        }
+      }
+    }
+
+    return Array.from(uniqueSizes).sort((left, right) => left - right)
+  }, [products])
 
   const toggleFilter = (
     value: string,
@@ -119,6 +133,15 @@ export function CatalogPage({
       return false
     }
 
+    if (
+      selectedSizes.length > 0 &&
+      !product.sizes.some(
+        (size) => size.available && selectedSizes.includes(size.size),
+      )
+    ) {
+      return false
+    }
+
     if (product.price < priceRange[0] || product.price > priceRange[1]) {
       return false
     }
@@ -131,6 +154,7 @@ export function CatalogPage({
     setSelectedMaterials([])
     setSelectedStyles([])
     setSelectedSeasons([])
+    setSelectedSizes([])
     setPriceRange([0, 30000])
   }
 
@@ -217,6 +241,28 @@ export function CatalogPage({
               />
               <Label htmlFor={`season-${season.id}`} className="text-sm cursor-pointer">
                 {season.label}
+              </Label>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h4 className="text-gray-900 mb-3">Размер</h4>
+        <div className="space-y-2">
+          {sizeOptions.map((size) => (
+            <div key={size} className="flex items-center space-x-2">
+              <Checkbox
+                id={`size-${size}`}
+                checked={selectedSizes.includes(size)}
+                onCheckedChange={() =>
+                  selectedSizes.includes(size)
+                    ? setSelectedSizes(selectedSizes.filter((value) => value !== size))
+                    : setSelectedSizes([...selectedSizes, size])
+                }
+              />
+              <Label htmlFor={`size-${size}`} className="text-sm cursor-pointer">
+                {size}
               </Label>
             </div>
           ))}

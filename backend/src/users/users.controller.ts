@@ -1,22 +1,38 @@
 import {
+  Body,
   Controller,
   Get,
-  Patch,
-  Body,
-  UseGuards,
-  Request,
-  Param,
   NotFoundException,
+  Param,
+  Patch,
+  Request,
+  UseGuards,
 } from '@nestjs/common'
-import { ApiTags, ApiBearerAuth, ApiOkResponse, ApiParam } from '@nestjs/swagger'
-import { UsersService } from './users.service'
+import { ApiBearerAuth, ApiOkResponse, ApiParam, ApiTags } from '@nestjs/swagger'
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'
+import { UpdateProfileDto } from './dto/update-profile.dto'
+import { User } from './user.entity'
+import { UsersService } from './users.service'
+
+function serializeUser(user: User) {
+  return {
+    id: user.id,
+    username: user.username,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    email: user.email,
+    role: user.role,
+    avatar: user.avatar,
+    phone: user.phone,
+    address: user.address,
+    bonusPoints: user.bonusPoints,
+  }
+}
 
 @ApiTags('users')
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
-
 
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -26,45 +42,20 @@ export class UsersController {
     const user = await this.usersService.findById(req.user.userId)
     if (!user) throw new NotFoundException('Пользователь не найден')
 
-    return {
-      id: user.id,
-      username: user.username,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      role: user.role,
-      avatar: user.avatar,
-      phone: user.phone,
-      address: user.address,
-      bonusPoints: user.bonusPoints,
-    }
+    return serializeUser(user)
   }
-
 
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @Patch('me/avatar')
-  @ApiOkResponse({ description: 'Аватар обновлен' })
-  async updateAvatar(@Request() req, @Body() body: { avatar: string }) {
+  @Patch('me')
+  @ApiOkResponse({ description: 'Профиль обновлен' })
+  async updateProfile(@Request() req, @Body() dto: UpdateProfileDto) {
     const user = await this.usersService.findById(req.user.userId)
     if (!user) throw new NotFoundException('Пользователь не найден')
 
-    await this.usersService.update(user.id, { avatar: body.avatar })
-    const updatedUser = await this.usersService.findById(user.id)
-    return {
-      id: updatedUser.id,
-      username: updatedUser.username,
-      firstName: updatedUser.firstName,
-      lastName: updatedUser.lastName,
-      email: updatedUser.email,
-      role: updatedUser.role,
-      avatar: updatedUser.avatar,
-      phone: updatedUser.phone,
-      address: updatedUser.address,
-      bonusPoints: updatedUser.bonusPoints,
-    }
+    const updatedUser = await this.usersService.updateProfile(user.id, dto)
+    return serializeUser(updatedUser)
   }
-
 
   @Get(':id')
   @ApiParam({ name: 'id', type: String, description: 'UUID пользователя' })
@@ -73,17 +64,6 @@ export class UsersController {
     const user = await this.usersService.findById(id)
     if (!user) throw new NotFoundException('Пользователь не найден')
 
-    return {
-      id: user.id,
-      username: user.username,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      role: user.role,
-      avatar: user.avatar,
-      phone: user.phone,
-      address: user.address,
-      bonusPoints: user.bonusPoints,
-    }
+    return serializeUser(user)
   }
 }

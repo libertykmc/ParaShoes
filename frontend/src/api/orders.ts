@@ -127,14 +127,16 @@ export async function createOrder(payload: CreateOrderPayload): Promise<Frontend
   return transformOrder(data)
 }
 
-export async function deleteOrder(orderId: string): Promise<void> {
-  const response = await authorizedFetch(`/orders/${orderId}`, {
-    method: 'DELETE',
+export async function cancelOrder(orderId: string): Promise<FrontendOrder> {
+  const response = await authorizedFetch(`/orders/${orderId}/cancel`, {
+    method: 'PATCH',
   })
 
   if (!response.ok) {
     const text = await response.text()
     throw new Error(text || parseErrorPrefix(response.status))
   }
-}
 
+  const data = (await response.json()) as BackendOrder
+  return transformOrder(data)
+}

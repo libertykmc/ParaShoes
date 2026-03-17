@@ -13,7 +13,7 @@ async function bootstrap() {
 
   const config = new DocumentBuilder()
     .setTitle('ParaShoes API')
-    .setDescription('Документация REST API для дипломного проекта')
+    .setDescription('')
     .setVersion('1.0')
     .addBearerAuth() // чтобы можно было авторизоваться в Swagger
     .build();

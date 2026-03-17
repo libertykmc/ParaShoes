@@ -1,14 +1,29 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { fetchProducts, FrontendProduct } from './api/api'
-import { fetchCurrentUser, FrontendUser, getToken, setToken } from './api/auth'
+import {
+  fetchCurrentUser,
+  FrontendUser,
+  getToken,
+  setToken,
+  updateCurrentUser,
+} from './api/auth'
+import {
+  addCartItem,
+  clearCartItems,
+  fetchCartItems,
+  FrontendCartItem,
+  removeCartItem,
+  updateCartItemQuantity,
+} from './api/cart'
 import { addToFavorites, fetchFavoriteIds, removeFromFavorites } from './api/favorites'
-import { createOrder, deleteOrder, fetchOrders, FrontendOrder } from './api/orders'
+import { cancelOrder, createOrder, fetchOrders, FrontendOrder } from './api/orders'
 import { AboutPage } from './components/AboutPage'
 import { AdminPage } from './components/AdminPage'
-import { CartPage, CartItem } from './components/CartPage'
+import { CartPage } from './components/CartPage'
 import { CatalogPage } from './components/CatalogPage'
 import { CheckoutPage, OrderData } from './components/CheckoutPage'
+import { EditProfilePage } from './components/EditProfilePage'
 import { FavoritesPage } from './components/FavoritesPage'
 import { Footer } from './components/Footer'
 import { Header } from './components/Header'
@@ -26,6 +41,7 @@ type Page =
   | 'cart'
   | 'checkout'
   | 'profile'
+  | 'edit-profile'
   | 'admin'
   | 'about'
   | 'favorites'
@@ -35,7 +51,7 @@ type Page =
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>('home')
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
-  const [cartItems, setCartItems] = useState<CartItem[]>([])
+  const [cartItems, setCartItems] = useState<FrontendCartItem[]>([])
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
   const [products, setProducts] = useState<FrontendProduct[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(true)
@@ -43,6 +59,8 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<FrontendUser | null>(null)
   const [orders, setOrders] = useState<FrontendOrder[]>([])
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null)
+  const [repeatingOrderId, setRepeatingOrderId] = useState<string | null>(null)
+  const [isProfileUpdating, setIsProfileUpdating] = useState<boolean>(false)
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true)
 
   const reloadProducts = async (): Promise<void> => {
@@ -67,6 +85,27 @@ export default function App() {
     }
 
     void loadFavorites()
+  }, [currentUser])
+
+  useEffect(() => {
+    const loadCart = async () => {
+      if (!currentUser) {
+        setCartItems([])
+        return
+      }
+
+      try {
+        const items = await fetchCartItems()
+        setCartItems(items)
+      } catch (cartError) {
+        const message =
+          cartError instanceof Error ? cartError.message : 'Не удалось загрузить корзину'
+        toast.error(message)
+        console.error('Error loading cart:', cartError)
+      }
+    }
+
+    void loadCart()
   }, [currentUser])
 
   useEffect(() => {
@@ -134,7 +173,13 @@ export default function App() {
     window.scrollTo(0, 0)
   }
 
-  const handleAddToCart = (modelId: string, size?: number) => {
+  const handleAddToCart = async (modelId: string, size?: number) => {
+    if (!currentUser) {
+      toast.info('Войдите в аккаунт, чтобы добавить товар в корзину')
+      setCurrentPage('login')
+      return
+    }
+
     const product = products.find((item) => item.id === modelId)
     if (!product) {
       return
@@ -160,28 +205,32 @@ export default function App() {
       return
     }
 
-    if (existingItem) {
-      setCartItems(
-        cartItems.map((item) =>
-          item.id === existingItem.id ? { ...item, quantity: nextQuantity } : item,
-        ),
+    try {
+      const savedItem = await addCartItem({
+        modelId,
+        size: selectedSize,
+        quantity: 1,
+      })
+
+      setCartItems((prev) => {
+        const itemExists = prev.some((item) => item.id === savedItem.id)
+        if (!itemExists) {
+          return [...prev, savedItem]
+        }
+        return prev.map((item) => (item.id === savedItem.id ? savedItem : item))
+      })
+
+      toast.success(
+        existingItem ? 'Количество товара увеличено' : 'Товар добавлен в корзину',
       )
-      toast.success('Количество товара увеличено')
-      return
+    } catch (addToCartError) {
+      const message =
+        addToCartError instanceof Error
+          ? addToCartError.message
+          : 'Ошибка добавления в корзину'
+      toast.error(message)
+      console.error('Error adding to cart:', addToCartError)
     }
-
-    const newItem: CartItem = {
-      id: `cart-${Date.now()}-${modelId}-${selectedSize}`,
-      modelId,
-      name: product.name,
-      price: product.price,
-      image: product.image,
-      size: selectedSize,
-      quantity: 1,
-    }
-
-    setCartItems([...cartItems, newItem])
-    toast.success('Товар добавлен в корзину')
   }
 
   const handleToggleFavorite = (modelId: string) => {
@@ -221,7 +270,7 @@ export default function App() {
     void toggle()
   }
 
-  const handleUpdateQuantity = (id: string, quantity: number) => {
+  const handleUpdateQuantity = async (id: string, quantity: number) => {
     const cartItem = cartItems.find((item) => item.id === id)
     if (!cartItem) {
       return
@@ -240,16 +289,34 @@ export default function App() {
       return
     }
 
-    setCartItems(
-      cartItems.map((item) =>
-        item.id === id ? { ...item, quantity: normalizedQuantity } : item,
-      ),
-    )
+    try {
+      const updatedItem = await updateCartItemQuantity(id, normalizedQuantity)
+      setCartItems((prev) =>
+        prev.map((item) => (item.id === id ? updatedItem : item)),
+      )
+    } catch (updateCartError) {
+      const message =
+        updateCartError instanceof Error
+          ? updateCartError.message
+          : 'Ошибка обновления количества'
+      toast.error(message)
+      console.error('Error updating cart quantity:', updateCartError)
+    }
   }
 
-  const handleRemoveItem = (id: string) => {
-    setCartItems(cartItems.filter((item) => item.id !== id))
-    toast.info('Товар удален из корзины')
+  const handleRemoveItem = async (id: string) => {
+    try {
+      await removeCartItem(id)
+      setCartItems((prev) => prev.filter((item) => item.id !== id))
+      toast.info('Товар удален из корзины')
+    } catch (removeCartError) {
+      const message =
+        removeCartError instanceof Error
+          ? removeCartError.message
+          : 'Ошибка удаления товара из корзины'
+      toast.error(message)
+      console.error('Error removing cart item:', removeCartError)
+    }
   }
 
   const handleCheckout = () => {
@@ -288,6 +355,13 @@ export default function App() {
     })
 
     setOrders((prev) => [createdOrder, ...prev])
+
+    try {
+      await clearCartItems()
+    } catch (clearCartError) {
+      console.error('Order created but cart cleanup failed:', clearCartError)
+    }
+
     setCartItems([])
     await reloadProducts()
     toast.success('Заказ оформлен')
@@ -295,17 +369,19 @@ export default function App() {
   }
 
   const handleCancelOrder = async (orderId: string): Promise<void> => {
-    const hasConfirmed = window.confirm('Отменить и удалить этот заказ?')
+    const hasConfirmed = window.confirm('Отменить этот заказ? Он останется доступен в истории заказов.')
     if (!hasConfirmed) {
       return
     }
 
     try {
       setCancellingOrderId(orderId)
-      await deleteOrder(orderId)
-      setOrders((prev) => prev.filter((order) => order.id !== orderId))
+      const cancelledOrder = await cancelOrder(orderId)
+      setOrders((prev) =>
+        prev.map((order) => (order.id === cancelledOrder.id ? cancelledOrder : order)),
+      )
       await reloadProducts()
-      toast.success('Заказ отменен')
+      toast.success('Заказ отменен и перенесен в историю')
     } catch (cancelError) {
       const message =
         cancelError instanceof Error ? cancelError.message : 'Не удалось отменить заказ'
@@ -313,6 +389,82 @@ export default function App() {
       console.error('Error cancelling order:', cancelError)
     } finally {
       setCancellingOrderId(null)
+    }
+  }
+
+  const handleRepeatOrder = async (orderId: string): Promise<void> => {
+    const order = orders.find((item) => item.id === orderId)
+    if (!order) {
+      toast.error('Не удалось найти заказ для повторения')
+      return
+    }
+
+    try {
+      setRepeatingOrderId(orderId)
+
+      const results = await Promise.allSettled(
+        order.items.map((item) =>
+          addCartItem({
+            modelId: item.modelId,
+            size: item.size,
+            quantity: item.quantity,
+          }),
+        ),
+      )
+
+      const successfulCount = results.filter((result) => result.status === 'fulfilled').length
+      const failedResults = results.filter(
+        (result): result is PromiseRejectedResult => result.status === 'rejected',
+      )
+
+      if (successfulCount === 0) {
+        throw new Error(
+          failedResults[0]?.reason instanceof Error
+            ? failedResults[0].reason.message
+            : 'Не удалось повторить заказ',
+        )
+      }
+
+      const refreshedCart = await fetchCartItems()
+      setCartItems(refreshedCart)
+      setCurrentPage('cart')
+      window.scrollTo(0, 0)
+
+      if (failedResults.length > 0) {
+        toast.info('Часть товаров добавлена в корзину. Некоторые позиции сейчас недоступны.')
+        return
+      }
+
+      toast.success('Товары из заказа добавлены в корзину')
+    } catch (repeatError) {
+      const message =
+        repeatError instanceof Error ? repeatError.message : 'Не удалось повторить заказ'
+      toast.error(message)
+      console.error('Error repeating order:', repeatError)
+    } finally {
+      setRepeatingOrderId(null)
+    }
+  }
+
+  const handleUpdateProfile = async (payload: {
+    fullName: string
+    phone: string
+    address: string
+  }): Promise<void> => {
+    try {
+      setIsProfileUpdating(true)
+      const updatedUser = await updateCurrentUser(payload)
+      setCurrentUser(updatedUser)
+      setCurrentPage('profile')
+      toast.success('Профиль обновлен')
+    } catch (updateError) {
+      const message =
+        updateError instanceof Error ? updateError.message : 'Не удалось обновить профиль'
+      toast.error(message)
+      console.error('Error updating profile:', updateError)
+      throw updateError
+    } finally {
+      setIsProfileUpdating(false)
     }
   }
 
@@ -324,6 +476,7 @@ export default function App() {
   const handleLogout = () => {
     setToken(null)
     setCurrentUser(null)
+    setCartItems([])
     setFavorites(new Set())
     toast.info('Вы вышли из аккаунта')
     setCurrentPage('home')
@@ -464,6 +617,28 @@ export default function App() {
                   orders={orders}
                   onCancelOrder={handleCancelOrder}
                   cancellingOrderId={cancellingOrderId}
+                  onRepeatOrder={handleRepeatOrder}
+                  repeatingOrderId={repeatingOrderId}
+                  onEditProfile={() => setCurrentPage('edit-profile')}
+                />
+              ) : (
+                <LoginPage
+                  onLoginSuccess={(user) => {
+                    setCurrentUser(user)
+                    setCurrentPage('profile')
+                  }}
+                  onNavigateToRegister={() => setCurrentPage('register')}
+                  onBack={() => setCurrentPage('home')}
+                />
+              ))}
+
+            {currentPage === 'edit-profile' &&
+              (currentUser ? (
+                <EditProfilePage
+                  user={currentUser}
+                  isLoading={isProfileUpdating}
+                  onSave={handleUpdateProfile}
+                  onCancel={() => setCurrentPage('profile')}
                 />
               ) : (
                 <LoginPage
