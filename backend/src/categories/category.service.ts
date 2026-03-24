@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { ProductCategory } from './category.entity'
@@ -38,6 +38,9 @@ export class CategoriesService {
 
   async remove(id: string): Promise<void> {
     const category = await this.findById(id)
+    if (category.products?.length) {
+      throw new BadRequestException('Нельзя удалить категорию, пока она используется в товарах')
+    }
     await this.categoriesRepo.remove(category)
   }
 }

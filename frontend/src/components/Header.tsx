@@ -1,13 +1,14 @@
-import { Heart, LogOut, Menu, ShoppingCart, User } from 'lucide-react';
-import logo from '../assets/images/logo.png';
-import { Button } from './ui/button';
+import { Heart, LogOut, Menu, ShoppingCart, Shield, User } from 'lucide-react'
+import logo from '../assets/images/logo.png'
+import { Button } from './ui/button'
 
 interface HeaderProps {
-  cartCount?: number;
-  favoritesCount?: number;
-  onNavigate: (page: string) => void;
-  isAuthorized?: boolean;
-  onLogout?: () => void;
+  cartCount?: number
+  favoritesCount?: number
+  onNavigate: (page: string) => void
+  isAuthorized?: boolean
+  isAdmin?: boolean
+  onLogout?: () => void
 }
 
 export function Header({
@@ -15,6 +16,7 @@ export function Header({
   favoritesCount = 0,
   onNavigate,
   isAuthorized = false,
+  isAdmin = false,
   onLogout,
 }: HeaderProps) {
   return (
@@ -25,7 +27,7 @@ export function Header({
             onClick={() => onNavigate('home')}
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
-            <img src={logo} style={{ width: '100px' }} />
+            <img src={logo} alt="ParaShoes" style={{ width: '100px' }} />
           </button>
 
           <nav className="hidden md:flex items-center gap-8">
@@ -44,6 +46,12 @@ export function Header({
           </nav>
 
           <div className="flex items-center gap-2 md:gap-4">
+            {isAdmin && (
+              <Button variant="ghost" size="icon" onClick={() => onNavigate('admin')} title="Админка">
+                <Shield className="w-5 h-5" />
+              </Button>
+            )}
+
             <Button
               variant="ghost"
               size="icon"
@@ -93,6 +101,5 @@ export function Header({
         </div>
       </div>
     </header>
-  );
+  )
 }
-

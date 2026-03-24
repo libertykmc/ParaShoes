@@ -29,6 +29,7 @@ import { Footer } from './components/Footer'
 import { Header } from './components/Header'
 import { HomePage } from './components/HomePage'
 import { LoginPage } from './components/LoginPage'
+import { OrderDetailsPage } from './components/OrderDetailsPage'
 import { ProductPage } from './components/ProductPage'
 import { ProfilePage } from './components/ProfilePage'
 import { RegisterPage } from './components/RegisterPage'
@@ -42,6 +43,7 @@ type Page =
   | 'checkout'
   | 'profile'
   | 'edit-profile'
+  | 'order-details'
   | 'admin'
   | 'about'
   | 'favorites'
@@ -51,6 +53,7 @@ type Page =
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>('home')
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const [cartItems, setCartItems] = useState<FrontendCartItem[]>([])
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
   const [products, setProducts] = useState<FrontendProduct[]>([])
@@ -170,6 +173,12 @@ export default function App() {
   const handleViewProduct = (modelId: string) => {
     setSelectedProductId(modelId)
     setCurrentPage('product')
+    window.scrollTo(0, 0)
+  }
+
+  const handleOpenOrder = (orderId: string) => {
+    setSelectedOrderId(orderId)
+    setCurrentPage('order-details')
     window.scrollTo(0, 0)
   }
 
@@ -485,6 +494,9 @@ export default function App() {
   const selectedProduct = selectedProductId
     ? products.find((item) => item.id === selectedProductId)
     : null
+  const selectedOrder = selectedOrderId
+    ? orders.find((item) => item.id === selectedOrderId) || null
+    : null
 
   const relatedProducts = selectedProduct
     ? products
@@ -503,6 +515,7 @@ export default function App() {
         favoritesCount={favorites.size}
         onNavigate={handleNavigate}
         isAuthorized={!!currentUser}
+        isAdmin={currentUser?.role === 'Администратор'}
         onLogout={handleLogout}
       />
 
@@ -620,6 +633,7 @@ export default function App() {
                   onRepeatOrder={handleRepeatOrder}
                   repeatingOrderId={repeatingOrderId}
                   onEditProfile={() => setCurrentPage('edit-profile')}
+                  onOpenOrder={handleOpenOrder}
                 />
               ) : (
                 <LoginPage
@@ -651,13 +665,63 @@ export default function App() {
                 />
               ))}
 
-            {currentPage === 'admin' && (
-              <AdminPage
-                products={products}
-                orders={orders}
-                users={currentUser ? [currentUser] : []}
-              />
-            )}
+            {currentPage === 'order-details' &&
+              (currentUser ? (
+                selectedOrder ? (
+                  <OrderDetailsPage
+                    order={selectedOrder}
+                    onBack={() => setCurrentPage('profile')}
+                    onCancelOrder={handleCancelOrder}
+                    cancellingOrderId={cancellingOrderId}
+                  />
+                ) : (
+                  <ProfilePage
+                    user={currentUser}
+                    orders={orders}
+                    onCancelOrder={handleCancelOrder}
+                    cancellingOrderId={cancellingOrderId}
+                    onRepeatOrder={handleRepeatOrder}
+                    repeatingOrderId={repeatingOrderId}
+                    onEditProfile={() => setCurrentPage('edit-profile')}
+                    onOpenOrder={handleOpenOrder}
+                  />
+                )
+              ) : (
+                <LoginPage
+                  onLoginSuccess={(user) => {
+                    setCurrentUser(user)
+                    setCurrentPage('profile')
+                  }}
+                  onNavigateToRegister={() => setCurrentPage('register')}
+                  onBack={() => setCurrentPage('home')}
+                />
+              ))}
+
+            {currentPage === 'admin' &&
+              (currentUser?.role === 'Администратор' ? (
+                <AdminPage
+                  currentUser={currentUser}
+                  initialProducts={products}
+                  initialOrders={orders}
+                  onProductCreated={(product) => {
+                    setProducts((prev) => [product, ...prev.filter((item) => item.id !== product.id)])
+                  }}
+                  onOrderUpdated={(updatedOrder) => {
+                    setOrders((prev) =>
+                      prev.map((order) => (order.id === updatedOrder.id ? updatedOrder : order)),
+                    )
+                  }}
+                />
+              ) : (
+                <HomePage
+                  products={products}
+                  onNavigate={handleNavigate}
+                  onAddToCart={handleAddToCart}
+                  onToggleFavorite={handleToggleFavorite}
+                  onViewProduct={handleViewProduct}
+                  favorites={favorites}
+                />
+              ))}
 
             {currentPage === 'favorites' && (
               <FavoritesPage

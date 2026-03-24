@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common"
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common"
 import { InjectRepository } from "@nestjs/typeorm"
 import { Repository } from "typeorm"
 import { ProductSeason } from './product-season.entity'
@@ -39,6 +39,9 @@ export class SeasonService {
 
     async remove(id: string): Promise<void> {
         const season = await this.findById(id)
+        if (season.products?.length) {
+            throw new BadRequestException('Нельзя удалить сезон, пока он используется в товарах')
+        }
         await this.seasonsRepo.remove(season)
     }
 }

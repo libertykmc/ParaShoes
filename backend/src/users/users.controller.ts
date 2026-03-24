@@ -9,7 +9,9 @@ import {
   UseGuards,
 } from '@nestjs/common'
 import { ApiBearerAuth, ApiOkResponse, ApiParam, ApiTags } from '@nestjs/swagger'
+import { assertAdmin } from '../auth/admin.helpers'
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'
+import { UpdateUserAdminDto } from './dto/update-user-admin.dto'
 import { UpdateProfileDto } from './dto/update-profile.dto'
 import { User } from './user.entity'
 import { UsersService } from './users.service'
@@ -36,6 +38,16 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @Get()
+  @ApiOkResponse({ description: 'Список пользователей для администратора' })
+  async findAll(@Request() req) {
+    assertAdmin(req.user)
+    const users = await this.usersService.findAll()
+    return users.map(serializeUser)
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @Get('me')
   @ApiOkResponse({ description: 'Получен профиль пользователя' })
   async getProfile(@Request() req) {
@@ -54,6 +66,27 @@ export class UsersController {
     if (!user) throw new NotFoundException('Пользователь не найден')
 
     const updatedUser = await this.usersService.updateProfile(user.id, dto)
+    return serializeUser(updatedUser)
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Patch(':id')
+  @ApiParam({ name: 'id', type: String, description: 'UUID пользователя' })
+  @ApiOkResponse({ description: 'Пользователь обновлен администратором' })
+  async updateUserByAdmin(@Request() req, @Param('id') id: string, @Body() dto: UpdateUserAdminDto) {
+    assertAdmin(req.user)
+
+    const user = await this.usersService.findById(id)
+    if (!user) throw new NotFoundException('Пользователь не найден')
+
+    const updatedUser = await this.usersService.update(id, {
+      role: dto.role,
+      bonusPoints: dto.bonusPoints,
+      phone: dto.phone?.trim(),
+      address: dto.address?.trim(),
+    })
+
     return serializeUser(updatedUser)
   }
 

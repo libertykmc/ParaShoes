@@ -32,7 +32,7 @@ import { UsersModule } from './users/users.module'
       port: parseInt('5432'),
       username: 'postgres',
       password: '543637',
-      database: 'parashoes2.0',
+      database: 'parashoes',
       entities: [
         User,
         Model,

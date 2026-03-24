@@ -6,6 +6,7 @@
   Delete,
   Param,
   Body,
+  Request,
   UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common'
@@ -13,6 +14,7 @@ import { ApiTags, ApiOkResponse, ApiCreatedResponse, ApiParam, ApiBearerAuth } f
 import { ProductsService } from './product.service'
 import { Model } from './product.entity'
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'
+import { assertAdmin } from '../auth/admin.helpers'
 import { CreateProductDto } from './dto/create-product.dto'
 import { UpdateProductDto } from './dto/update-product.dto'
 import { UpdateProductImageDto } from './dto/update-product-image.dto'
@@ -39,7 +41,8 @@ export class ProductsController {
   @ApiBearerAuth()
   @Post()
   @ApiCreatedResponse({ type: Model, description: 'Создана новая модель' })
-  create(@Body() dto: CreateProductDto) {
+  create(@Request() req, @Body() dto: CreateProductDto) {
+    assertAdmin(req.user)
     return this.productsService.create(dto)
   }
 
@@ -48,9 +51,11 @@ export class ProductsController {
   @Patch(':id')
   @ApiOkResponse({ type: Model, description: 'Модель обновлена' })
   update(
+    @Request() req,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateProductDto,
   ) {
+    assertAdmin(req.user)
     return this.productsService.update(id, dto)
   }
 
@@ -59,9 +64,11 @@ export class ProductsController {
   @Patch(':id/image')
   @ApiOkResponse({ type: Model, description: 'Updated model image URL' })
   updateImage(
+    @Request() req,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateProductImageDto,
   ) {
+    assertAdmin(req.user)
     return this.productsService.update(id, { image: dto.image })
   }
 
@@ -69,7 +76,8 @@ export class ProductsController {
   @ApiBearerAuth()
   @Delete(':id')
   @ApiOkResponse({ description: 'Модель удалена' })
-  remove(@Param('id', new ParseUUIDPipe()) id: string) {
+  remove(@Request() req, @Param('id', new ParseUUIDPipe()) id: string) {
+    assertAdmin(req.user)
     return this.productsService.remove(id)
   }
 }

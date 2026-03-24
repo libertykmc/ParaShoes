@@ -15,6 +15,7 @@ export interface CreateOrderPayload {
 interface BackendOrderModel {
   id: string
   name?: string
+  image?: string
 }
 
 interface BackendOrderItem {
@@ -25,6 +26,15 @@ interface BackendOrderItem {
   model?: BackendOrderModel
 }
 
+interface BackendOrderUser {
+  id: string
+  username?: string
+  firstName?: string
+  lastName?: string
+  phone?: string
+  address?: string
+}
+
 interface BackendOrder {
   id: string
   orderDate: string
@@ -32,11 +42,13 @@ interface BackendOrder {
   deliveryAddress: string
   totalAmount: number | string
   orderItems: BackendOrderItem[]
+  user?: BackendOrderUser
 }
 
 export interface FrontendOrderItem {
   modelId: string
   productName: string
+  productImage: string
   size: number
   quantity: number
   price: number
@@ -50,6 +62,12 @@ export interface FrontendOrder {
   total: number
   isActive: boolean
   items: FrontendOrderItem[]
+  customer: {
+    id: string
+    name: string
+    phone: string
+    address: string
+  } | null
 }
 
 function parseErrorPrefix(status: number): string {
@@ -62,6 +80,8 @@ function isActiveStatus(status: string): boolean {
 }
 
 function transformOrder(order: BackendOrder): FrontendOrder {
+  const fullName = [order.user?.firstName, order.user?.lastName].filter(Boolean).join(' ').trim()
+
   return {
     id: order.id,
     date: order.orderDate,
@@ -69,9 +89,18 @@ function transformOrder(order: BackendOrder): FrontendOrder {
     deliveryAddress: order.deliveryAddress,
     total: Number(order.totalAmount),
     isActive: isActiveStatus(order.status),
+    customer: order.user
+      ? {
+          id: order.user.id,
+          name: fullName || order.user.username || 'Пользователь',
+          phone: order.user.phone || '',
+          address: order.user.address || '',
+        }
+      : null,
     items: (order.orderItems || []).map((item) => ({
       modelId: item.modelId,
       productName: item.model?.name || 'Товар',
+      productImage: item.model?.image || 'https://via.placeholder.com/400',
       size: item.size,
       quantity: item.quantity,
       price: Number(item.price),
@@ -130,6 +159,21 @@ export async function createOrder(payload: CreateOrderPayload): Promise<Frontend
 export async function cancelOrder(orderId: string): Promise<FrontendOrder> {
   const response = await authorizedFetch(`/orders/${orderId}/cancel`, {
     method: 'PATCH',
+  })
+
+  if (!response.ok) {
+    const text = await response.text()
+    throw new Error(text || parseErrorPrefix(response.status))
+  }
+
+  const data = (await response.json()) as BackendOrder
+  return transformOrder(data)
+}
+
+export async function updateOrderStatus(orderId: string, status: string): Promise<FrontendOrder> {
+  const response = await authorizedFetch(`/orders/${orderId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
   })
 
   if (!response.ok) {

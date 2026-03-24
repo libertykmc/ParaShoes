@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common"
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common"
 import { InjectRepository } from "@nestjs/typeorm"
 import { Repository } from "typeorm"
 import { ProductStyle } from './product-style.entity'
@@ -39,6 +39,9 @@ export class StyleService {
 
     async remove(id: string): Promise<void> {
         const style = await this.findById(id)
+        if (style.products?.length) {
+            throw new BadRequestException('Нельзя удалить стиль, пока он используется в товарах')
+        }
         await this.stylesRepo.remove(style)
     }
 }

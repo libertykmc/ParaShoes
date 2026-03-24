@@ -1,31 +1,33 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Delete,
-  Param,
   Body,
-  UseGuards,
+  Controller,
+  Delete,
+  Get,
+  Param,
   ParseUUIDPipe,
+  Patch,
+  Post,
+  Request,
+  UseGuards,
 } from '@nestjs/common'
 import {
-  ApiTags,
-  ApiOkResponse,
-  ApiCreatedResponse,
-  ApiParam,
   ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiParam,
+  ApiTags,
 } from '@nestjs/swagger'
-import { CategoriesService } from './category.service'
-import { ProductCategory } from './category.entity'
+import { assertAdmin } from '../auth/admin.helpers'
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'
+import { ProductCategory } from './category.entity'
+import { CategoriesService } from './category.service'
 import { CreateCategoryDto } from './dto/create-category.dto'
 import { UpdateCategoryDto } from './dto/update-category.dto'
 
 @ApiTags('categories')
 @Controller('categories')
 export class CategoriesController {
-  constructor(private readonly categoriesService: CategoriesService) { }
+  constructor(private readonly categoriesService: CategoriesService) {}
 
   @Get()
   @ApiOkResponse({ type: [ProductCategory], description: 'Список всех категорий' })
@@ -44,7 +46,8 @@ export class CategoriesController {
   @ApiBearerAuth()
   @Post()
   @ApiCreatedResponse({ type: ProductCategory, description: 'Создана новая категория' })
-  create(@Body() dto: CreateCategoryDto) {
+  create(@Request() req, @Body() dto: CreateCategoryDto) {
+    assertAdmin(req.user)
     return this.categoriesService.create(dto)
   }
 
@@ -53,9 +56,11 @@ export class CategoriesController {
   @Patch(':id')
   @ApiOkResponse({ type: ProductCategory, description: 'Категория обновлена' })
   update(
+    @Request() req,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateCategoryDto,
   ) {
+    assertAdmin(req.user)
     return this.categoriesService.update(id, dto)
   }
 
@@ -63,8 +68,8 @@ export class CategoriesController {
   @ApiBearerAuth()
   @Delete(':id')
   @ApiOkResponse({ description: 'Категория удалена' })
-  remove(@Param('id', new ParseUUIDPipe()) id: string) {
+  remove(@Request() req, @Param('id', new ParseUUIDPipe()) id: string) {
+    assertAdmin(req.user)
     return this.categoriesService.remove(id)
   }
 }
-

@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { DataSource, EntityManager, Repository } from 'typeorm'
 import { ModelSizeStock } from '../products/model-size-stock.entity'
 import { Model } from '../products/product.entity'
+import { User } from '../users/user.entity'
 import { CreateOrderDto } from './dto/create-order.dto'
 import { UpdateOrderDto } from './dto/update-order.dto'
 import { OrderItem } from './order-item.entity'
@@ -143,9 +144,27 @@ export class OrdersService {
   }
 
   async update(id: string, dto: UpdateOrderDto, userId?: string): Promise<Order> {
-    const order = await this.findById(id, userId)
-    Object.assign(order, dto)
-    return this.ordersRepo.save(order)
+    return this.dataSource.transaction(async (manager) => {
+      const order = await this.getOrderWithItems(manager, id, userId)
+      const nextStatus = dto.status
+      const shouldAwardBonus =
+        nextStatus === OrderStatus.COMPLETED &&
+        order.status !== OrderStatus.COMPLETED &&
+        !order.bonusAwarded
+
+      Object.assign(order, dto)
+
+      if (shouldAwardBonus) {
+        const bonusPoints = this.calculateBonusPoints(order.totalAmount)
+        if (bonusPoints > 0) {
+          await manager.getRepository(User).increment({ id: order.userId }, 'bonusPoints', bonusPoints)
+        }
+        order.bonusAwarded = true
+      }
+
+      await manager.getRepository(Order).save(order)
+      return this.getOrderWithItems(manager, id, userId)
+    })
   }
 
   async cancel(id: string, userId: string): Promise<Order> {
@@ -224,6 +243,10 @@ export class OrdersService {
       sizeStock.stock += item.quantity
       await sizeStockRepo.save(sizeStock)
     }
+  }
+
+  private calculateBonusPoints(totalAmount: number): number {
+    return Math.floor(Number(totalAmount) * 0.1)
   }
 }
 

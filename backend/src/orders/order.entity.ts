@@ -41,6 +41,10 @@ export class Order {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   totalAmount: number
 
+  @ApiProperty({ example: false })
+  @Column({ type: 'boolean', default: false })
+  bonusAwarded: boolean
+
   @ApiProperty()
   @Column({ name: 'user_id' })
   userId: string

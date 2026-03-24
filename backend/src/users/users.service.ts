@@ -19,6 +19,12 @@ export class UsersService {
     return this.usersRepo.findOne({ where: { username } })
   }
 
+  findAll() {
+    return this.usersRepo.find({
+      order: { createdAt: 'DESC' },
+    })
+  }
+
   async findById(id: string) {
     try {
       const user = await this.usersRepo.findOneBy({ id })

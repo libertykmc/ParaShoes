@@ -17,6 +17,7 @@ interface ProfilePageProps {
   onRepeatOrder?: (orderId: string) => Promise<void>
   repeatingOrderId?: string | null
   onEditProfile?: () => void
+  onOpenOrder?: (orderId: string) => void
 }
 
 interface OrderCardProps {
@@ -25,6 +26,7 @@ interface OrderCardProps {
   cancellingOrderId?: string | null
   onRepeatOrder?: (orderId: string) => Promise<void>
   repeatingOrderId?: string | null
+  onOpenOrder?: (orderId: string) => void
 }
 
 function getStatusColor(status: string): string {
@@ -60,14 +62,22 @@ function OrderCard({
   cancellingOrderId,
   onRepeatOrder,
   repeatingOrderId,
+  onOpenOrder,
 }: OrderCardProps) {
   const isCancelling = cancellingOrderId === order.id
   const isRepeating = repeatingOrderId === order.id
   const showCancelButton = order.isActive && !!onCancelOrder
   const showRepeatButton = !order.isActive && !!onRepeatOrder
+  const isClickable = order.isActive && !!onOpenOrder
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4 hover:border-amber-300 transition-colors">
+    <button
+      type="button"
+      className={`w-full border border-gray-200 rounded-lg p-4 text-left transition-colors ${
+        isClickable ? 'hover:border-amber-300 cursor-pointer' : ''
+      }`}
+      onClick={isClickable ? () => onOpenOrder?.(order.id) : undefined}
+    >
       <div className="flex items-start justify-between mb-3 gap-3">
         <div>
           <p className="text-gray-900 mb-1">Заказ {order.id}</p>
@@ -103,7 +113,10 @@ function OrderCard({
               type="button"
               className="w-full bg-amber-700 hover:bg-amber-800"
               disabled={isRepeating}
-              onClick={() => void onRepeatOrder?.(order.id)}
+              onClick={(event) => {
+                event.stopPropagation()
+                void onRepeatOrder?.(order.id)
+              }}
             >
               {isRepeating ? 'Повторяем...' : 'Повторить заказ'}
             </Button>
@@ -115,14 +128,17 @@ function OrderCard({
               variant="outline"
               className="w-full border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
               disabled={isCancelling}
-              onClick={() => void onCancelOrder?.(order.id)}
+              onClick={(event) => {
+                event.stopPropagation()
+                void onCancelOrder?.(order.id)
+              }}
             >
               {isCancelling ? 'Отмена...' : 'Отменить заказ'}
             </Button>
           )}
         </div>
       )}
-    </div>
+    </button>
   )
 }
 
@@ -134,6 +150,7 @@ export function ProfilePage({
   onRepeatOrder,
   repeatingOrderId,
   onEditProfile,
+  onOpenOrder,
 }: ProfilePageProps) {
   const activeOrders = orders.filter((order) => order.isActive)
   const historyOrders = orders.filter((order) => !order.isActive)
@@ -182,13 +199,8 @@ export function ProfilePage({
                 </div>
               </div>
 
-              <div className="pt-6" style={{paddingTop:"15px"}}>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={onEditProfile}
-                >
+              <div className="pt-6" style={{ paddingTop: '15px' }}>
+                <Button type="button" variant="outline" className="w-full" onClick={onEditProfile}>
                   Редактировать профиль
                 </Button>
               </div>
@@ -224,14 +236,15 @@ export function ProfilePage({
                       order={order}
                       onCancelOrder={onCancelOrder}
                       cancellingOrderId={cancellingOrderId}
+                      onOpenOrder={onOpenOrder}
                     />
                   ))}
                 </div>
               )}
             </div>
 
-            <div className="bg-white rounded-xl p-6 border border-gray-200" style={{marginTop:"10px"}} >
-              <div className="flex items-center gap-3 mb-6" >
+            <div className="bg-white rounded-xl p-6 border border-gray-200" style={{ marginTop: '10px' }}>
+              <div className="flex items-center gap-3 mb-6">
                 <Package className="w-6 h-6 text-gray-700" />
                 <h2 className="text-gray-900">История заказов</h2>
               </div>

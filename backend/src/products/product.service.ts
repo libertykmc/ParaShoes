@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { DataSource, Repository } from 'typeorm'
+import { DataSource, QueryFailedError, Repository } from 'typeorm'
 import { CategoriesService } from '../categories/category.service'
 import { CreateProductDto, ProductSizeStockDto } from './dto/create-product.dto'
 import { ModelSizeStock } from './model-size-stock.entity'
@@ -109,7 +109,16 @@ export class ProductsService {
 
   async remove(id: string): Promise<void> {
     const product = await this.findById(id)
-    await this.productsRepo.remove(product)
+    try {
+      await this.productsRepo.remove(product)
+    } catch (error) {
+      if (error instanceof QueryFailedError) {
+        throw new BadRequestException(
+          'Нельзя удалить товар, пока он используется в заказах, корзине или избранном',
+        )
+      }
+      throw error
+    }
   }
 
   private async validateCategory(categoryId?: string): Promise<void> {

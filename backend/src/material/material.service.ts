@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common"
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common"
 import { InjectRepository } from "@nestjs/typeorm"
 import { Repository } from "typeorm"
 import { ProductMaterial } from './product-material.entity'
@@ -39,6 +39,9 @@ export class MaterialService {
 
     async remove(id: string): Promise<void> {
         const material = await this.findById(id)
+        if (material.products?.length) {
+            throw new BadRequestException('Нельзя удалить материал, пока он используется в товарах')
+        }
         await this.materialsRepo.remove(material)
     }
 }

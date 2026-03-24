@@ -18,6 +18,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger'
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'
+import { assertAdmin } from '../auth/admin.helpers'
 import { CreateOrderDto } from './dto/create-order.dto'
 import { UpdateOrderDto } from './dto/update-order.dto'
 import { Order } from './order.entity'
@@ -64,8 +65,8 @@ export class OrdersController {
     @Body() dto: UpdateOrderDto,
     @Request() req,
   ) {
-    const userId = req.user.role === 'Администратор' ? undefined : req.user.userId
-    return this.ordersService.update(id, dto, userId)
+    assertAdmin(req.user)
+    return this.ordersService.update(id, dto)
   }
 
   @UseGuards(JwtAuthGuard)
