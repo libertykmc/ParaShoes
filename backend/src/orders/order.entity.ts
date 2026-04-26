@@ -45,6 +45,10 @@ export class Order {
   @Column({ type: 'boolean', default: false })
   bonusAwarded: boolean
 
+  @ApiProperty({ example: 300 })
+  @Column({ type: 'int', default: 0 })
+  bonusPointsSpent: number
+
   @ApiProperty()
   @Column({ name: 'user_id' })
   userId: string

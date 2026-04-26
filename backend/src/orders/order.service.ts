@@ -57,8 +57,9 @@ export class OrdersService {
       const orderRepo = manager.getRepository(Order)
       const orderItemRepo = manager.getRepository(OrderItem)
       const sizeStockRepo = manager.getRepository(ModelSizeStock)
+      const userRepo = manager.getRepository(User)
 
-      let totalAmount = 0
+      let subtotalAmount = 0
       const lockedSizeStocks = new Map<string, ModelSizeStock>()
       const reservedByKey = new Map<string, number>()
 
@@ -103,8 +104,37 @@ export class OrdersService {
         }
 
         reservedByKey.set(lockKey, reservedQuantity)
-        totalAmount += item.price * item.quantity
+        subtotalAmount += item.price * item.quantity
       }
+
+      const user = await userRepo
+        .createQueryBuilder('user')
+        .setLock('pessimistic_write')
+        .where('user.id = :userId', { userId })
+        .getOne()
+
+      if (!user) {
+        throw new NotFoundException(`Пользователь с id ${userId} не найден`)
+      }
+
+      const bonusPointsToSpend = dto.bonusPointsToSpend ?? 0
+      const maxBonusPointsToSpend = Math.floor(subtotalAmount * 0.1)
+      if (bonusPointsToSpend > user.bonusPoints) {
+        throw new BadRequestException('Недостаточно бонусов для списания')
+      }
+
+      if (bonusPointsToSpend > maxBonusPointsToSpend) {
+        throw new BadRequestException(
+          'Можно списать бонусами не более 10% стоимости заказа',
+        )
+      }
+
+      if (bonusPointsToSpend > 0) {
+        user.bonusPoints -= bonusPointsToSpend
+        await userRepo.save(user)
+      }
+
+      const totalAmount = subtotalAmount - bonusPointsToSpend
 
       const order = await orderRepo.save(
         orderRepo.create({
@@ -112,6 +142,7 @@ export class OrdersService {
           deliveryAddress: dto.deliveryAddress,
           totalAmount,
           status: OrderStatus.ACCEPTED,
+          bonusPointsSpent: bonusPointsToSpend,
         }),
       )
 
@@ -147,17 +178,31 @@ export class OrdersService {
     return this.dataSource.transaction(async (manager) => {
       const order = await this.getOrderWithItems(manager, id, userId)
       const nextStatus = dto.status
+      const shouldCancelOrder =
+        nextStatus === OrderStatus.CANCELLED &&
+        order.status !== OrderStatus.CANCELLED
       const shouldAwardBonus =
         nextStatus === OrderStatus.COMPLETED &&
         order.status !== OrderStatus.COMPLETED &&
         !order.bonusAwarded
+
+      if (shouldCancelOrder && order.status === OrderStatus.COMPLETED) {
+        throw new ForbiddenException('Нельзя отменить выполненный заказ')
+      }
+
+      if (shouldCancelOrder) {
+        await this.restoreOrderStock(manager, order)
+        await this.restoreSpentBonusPoints(manager, order)
+      }
 
       Object.assign(order, dto)
 
       if (shouldAwardBonus) {
         const bonusPoints = this.calculateBonusPoints(order.totalAmount)
         if (bonusPoints > 0) {
-          await manager.getRepository(User).increment({ id: order.userId }, 'bonusPoints', bonusPoints)
+          await manager
+            .getRepository(User)
+            .increment({ id: order.userId }, 'bonusPoints', bonusPoints)
         }
         order.bonusAwarded = true
       }
@@ -177,6 +222,7 @@ export class OrdersService {
 
       if (order.status !== OrderStatus.CANCELLED) {
         await this.restoreOrderStock(manager, order)
+        await this.restoreSpentBonusPoints(manager, order)
       }
 
       order.status = OrderStatus.CANCELLED
@@ -195,6 +241,7 @@ export class OrdersService {
         order.status !== OrderStatus.COMPLETED
       ) {
         await this.restoreOrderStock(manager, order)
+        await this.restoreSpentBonusPoints(manager, order)
       }
 
       await manager.getRepository(Order).remove(order)
@@ -245,8 +292,20 @@ export class OrdersService {
     }
   }
 
+  private async restoreSpentBonusPoints(
+    manager: EntityManager,
+    order: Order,
+  ): Promise<void> {
+    if (order.bonusPointsSpent <= 0) {
+      return
+    }
+
+    await manager
+      .getRepository(User)
+      .increment({ id: order.userId }, 'bonusPoints', order.bonusPointsSpent)
+  }
+
   private calculateBonusPoints(totalAmount: number): number {
     return Math.floor(Number(totalAmount) * 0.1)
   }
 }
-

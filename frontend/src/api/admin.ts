@@ -183,6 +183,31 @@ export async function createSeason(name: string): Promise<AdminOption> {
   return readJsonOrThrow<AdminOption>(response)
 }
 
+async function updateReferenceName(path: string, name: string): Promise<AdminOption> {
+  const response = await authorizedFetch(path, {
+    method: 'PATCH',
+    body: JSON.stringify({ name }),
+  })
+
+  return readJsonOrThrow<AdminOption>(response)
+}
+
+export async function updateCategory(categoryId: string, name: string): Promise<AdminOption> {
+  return updateReferenceName(`/categories/${categoryId}`, name)
+}
+
+export async function updateMaterial(materialId: string, name: string): Promise<AdminOption> {
+  return updateReferenceName(`/materials/${materialId}`, name)
+}
+
+export async function updateStyle(styleId: string, name: string): Promise<AdminOption> {
+  return updateReferenceName(`/styles/${styleId}`, name)
+}
+
+export async function updateSeason(seasonId: string, name: string): Promise<AdminOption> {
+  return updateReferenceName(`/seasons/${seasonId}`, name)
+}
+
 export async function createAdminProduct(payload: CreateAdminProductPayload): Promise<FrontendProduct> {
   const response = await authorizedFetch('/models', {
     method: 'POST',

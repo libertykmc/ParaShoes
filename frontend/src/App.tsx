@@ -355,6 +355,7 @@ export default function App() {
 
     const createdOrder = await createOrder({
       deliveryAddress: orderData.address.trim(),
+      bonusPointsToSpend: orderData.bonusPointsToSpend,
       items: cartItems.map((item) => ({
         modelId: item.modelId,
         size: item.size,
@@ -364,6 +365,14 @@ export default function App() {
     })
 
     setOrders((prev) => [createdOrder, ...prev])
+    setCurrentUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            bonusPoints: Math.max(0, prev.bonusPoints - createdOrder.bonusPointsSpent),
+          }
+        : prev,
+    )
 
     try {
       await clearCartItems()
@@ -378,7 +387,9 @@ export default function App() {
   }
 
   const handleCancelOrder = async (orderId: string): Promise<void> => {
-    const hasConfirmed = window.confirm('Отменить этот заказ? Он останется доступен в истории заказов.')
+    const hasConfirmed = window.confirm(
+      'Отменить этот заказ? Он останется доступен в истории заказов.',
+    )
     if (!hasConfirmed) {
       return
     }
@@ -388,6 +399,14 @@ export default function App() {
       const cancelledOrder = await cancelOrder(orderId)
       setOrders((prev) =>
         prev.map((order) => (order.id === cancelledOrder.id ? cancelledOrder : order)),
+      )
+      setCurrentUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              bonusPoints: prev.bonusPoints + cancelledOrder.bonusPointsSpent,
+            }
+          : prev,
       )
       await reloadProducts()
       toast.success('Заказ отменен и перенесен в историю')
@@ -612,6 +631,7 @@ export default function App() {
             {currentPage === 'checkout' && (
               <CheckoutPage
                 items={cartItems}
+                availableBonusPoints={currentUser?.bonusPoints || 0}
                 onBack={handleBackFromCheckout}
                 onConfirm={handleConfirmOrder}
                 initialOrderData={{

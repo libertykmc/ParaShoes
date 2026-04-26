@@ -17,7 +17,11 @@ import {
   fetchMaterials,
   fetchSeasons,
   fetchStyles,
+  updateCategory,
   updateAdminProduct,
+  updateMaterial,
+  updateSeason,
+  updateStyle,
   updateAdminUser,
 } from '../api/admin'
 import { FrontendProduct } from '../api/api'
@@ -29,6 +33,14 @@ import { Input } from './ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { Textarea } from './ui/textarea'
+import {
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+} from 'recharts'
 
 interface AdminPageProps {
   currentUser: FrontendUser
@@ -39,6 +51,16 @@ interface AdminPageProps {
 }
 
 const ORDER_STATUSES = ['Принят', 'Готовится', 'Доставляется', 'Выполнен', 'Отменен']
+type ReferenceType = 'category' | 'material' | 'style' | 'season'
+const CHART_COLORS = ['#b45309', '#0f766e', '#1d4ed8', '#b91c1c', '#7c3aed', '#475569']
+
+interface MonthlyModelStat {
+  modelId: string
+  productName: string
+  quantity: number
+  revenue: number
+  ordersCount: number
+}
 
 function getStatusColor(status: string): string {
   const normalized = status.toLowerCase()
@@ -87,6 +109,21 @@ function createEmptyProductForm() {
   }
 }
 
+function createEmptyReferenceForm() {
+  return {
+    type: 'category' as ReferenceType,
+    name: '',
+  }
+}
+
+function isCompletedOrder(order: FrontendOrder): boolean {
+  return order.status.toLowerCase().includes('выполн')
+}
+
+function isSameMonth(date: Date, year: number, month: number): boolean {
+  return date.getFullYear() === year && date.getMonth() === month
+}
+
 export function AdminPage({
   currentUser,
   initialProducts,
@@ -101,19 +138,22 @@ export function AdminPage({
   const [materials, setMaterials] = useState<AdminOption[]>([])
   const [styles, setStyles] = useState<AdminOption[]>([])
   const [seasons, setSeasons] = useState<AdminOption[]>([])
+  const [activeTab, setActiveTab] = useState('orders')
   const [orderSearchTerm, setOrderSearchTerm] = useState('')
   const [productSearchTerm, setProductSearchTerm] = useState('')
-  const [referenceName, setReferenceName] = useState('')
   const [isLoadingUsers, setIsLoadingUsers] = useState(true)
   const [isSavingOrderId, setIsSavingOrderId] = useState<string | null>(null)
   const [isSavingUserId, setIsSavingUserId] = useState<string | null>(null)
   const [creatingReference, setCreatingReference] = useState<string | null>(null)
   const [isSavingProduct, setIsSavingProduct] = useState(false)
   const [editingProductId, setEditingProductId] = useState<string | null>(null)
+  const [editingReferenceId, setEditingReferenceId] = useState<string | null>(null)
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null)
   const [deletingReferenceKey, setDeletingReferenceKey] = useState<string | null>(null)
   const [userDrafts, setUserDrafts] = useState<Record<string, { role: string; bonusPoints: string }>>({})
   const [orderDrafts, setOrderDrafts] = useState<Record<string, string>>({})
+  const [isSavingReference, setIsSavingReference] = useState(false)
+  const [referenceForm, setReferenceForm] = useState(createEmptyReferenceForm)
   const [productForm, setProductForm] = useState(createEmptyProductForm)
 
   useEffect(() => {
@@ -170,10 +210,77 @@ export function AdminPage({
   const filteredProducts = products.filter((product) =>
     product.name.toLowerCase().includes(productSearchTerm.toLowerCase()),
   )
+  const now = new Date()
+  const currentMonthYear = now.getFullYear()
+  const currentMonthIndex = now.getMonth()
+  const monthlyCompletedOrders = orders.filter((order) => {
+    if (!isCompletedOrder(order)) {
+      return false
+    }
+
+    const orderDate = new Date(order.date)
+    return isSameMonth(orderDate, currentMonthYear, currentMonthIndex)
+  })
+
+  const monthlyStatsMap = new Map<string, MonthlyModelStat>()
+  for (const order of monthlyCompletedOrders) {
+    const processedModels = new Set<string>()
+
+    for (const item of order.items) {
+      const current =
+        monthlyStatsMap.get(item.modelId) || {
+          modelId: item.modelId,
+          productName: item.productName,
+          quantity: 0,
+          revenue: 0,
+          ordersCount: 0,
+        }
+
+      current.quantity += item.quantity
+      current.revenue += item.price * item.quantity
+
+      if (!processedModels.has(item.modelId)) {
+        current.ordersCount += 1
+        processedModels.add(item.modelId)
+      }
+
+      monthlyStatsMap.set(item.modelId, current)
+    }
+  }
+
+  const monthlyModelStats = Array.from(monthlyStatsMap.values()).sort(
+    (left, right) => right.quantity - left.quantity || right.revenue - left.revenue,
+  )
+  const totalPairsSoldThisMonth = monthlyModelStats.reduce((sum, item) => sum + item.quantity, 0)
+  const totalRevenueThisMonth = monthlyModelStats.reduce((sum, item) => sum + item.revenue, 0)
+  const topModel = monthlyModelStats[0] || null
+  const averagePairsPerOrder = monthlyCompletedOrders.length
+    ? totalPairsSoldThisMonth / monthlyCompletedOrders.length
+    : 0
+  const chartBaseData = monthlyModelStats.slice(0, 5).map((item) => ({
+    name: item.productName,
+    value: item.quantity,
+  }))
+  const remainingPairs = monthlyModelStats
+    .slice(5)
+    .reduce((sum, item) => sum + item.quantity, 0)
+  const chartData =
+    remainingPairs > 0
+      ? [...chartBaseData, { name: 'Остальные', value: remainingPairs }]
+      : chartBaseData
+  const statsMonthLabel = now.toLocaleDateString('ru-RU', {
+    month: 'long',
+    year: 'numeric',
+  })
 
   const resetProductForm = () => {
     setEditingProductId(null)
     setProductForm(createEmptyProductForm())
+  }
+
+  const resetReferenceForm = () => {
+    setEditingReferenceId(null)
+    setReferenceForm(createEmptyReferenceForm())
   }
 
   const handleOrderStatusSave = async (orderId: string) => {
@@ -214,37 +321,71 @@ export function AdminPage({
     }
   }
 
-  const handleCreateReference = async (type: 'category' | 'material' | 'style' | 'season') => {
-    const name = referenceName.trim()
+  const handleEditReference = (type: ReferenceType, item: AdminOption) => {
+    setEditingReferenceId(item.id)
+    setReferenceForm({
+      type,
+      name: item.name,
+    })
+  }
+
+  const handleReferenceSubmit = async (event: FormEvent) => {
+    event.preventDefault()
+
+    const { type } = referenceForm
+    const name = referenceForm.name.trim()
     if (!name) {
       toast.error('Введите название')
       return
     }
 
     try {
-      setCreatingReference(type)
+      setIsSavingReference(true)
 
-      let created: AdminOption
-      if (type === 'category') {
-        created = await createCategory(name)
-        setCategories((prev) => [created, ...prev])
-      } else if (type === 'material') {
-        created = await createMaterial(name)
-        setMaterials((prev) => [created, ...prev])
-      } else if (type === 'style') {
-        created = await createStyle(name)
-        setStyles((prev) => [created, ...prev])
+      if (editingReferenceId) {
+        let updated: AdminOption
+        if (type === 'category') {
+          updated = await updateCategory(editingReferenceId, name)
+          setCategories((prev) => prev.map((entry) => (entry.id === editingReferenceId ? updated : entry)))
+        } else if (type === 'material') {
+          updated = await updateMaterial(editingReferenceId, name)
+          setMaterials((prev) => prev.map((entry) => (entry.id === editingReferenceId ? updated : entry)))
+        } else if (type === 'style') {
+          updated = await updateStyle(editingReferenceId, name)
+          setStyles((prev) => prev.map((entry) => (entry.id === editingReferenceId ? updated : entry)))
+        } else {
+          updated = await updateSeason(editingReferenceId, name)
+          setSeasons((prev) => prev.map((entry) => (entry.id === editingReferenceId ? updated : entry)))
+        }
+
+        toast.success('Справочник обновлен')
       } else {
-        created = await createSeason(name)
-        setSeasons((prev) => [created, ...prev])
+        let created: AdminOption
+        setCreatingReference(type)
+
+        if (type === 'category') {
+          created = await createCategory(name)
+          setCategories((prev) => [created, ...prev])
+        } else if (type === 'material') {
+          created = await createMaterial(name)
+          setMaterials((prev) => [created, ...prev])
+        } else if (type === 'style') {
+          created = await createStyle(name)
+          setStyles((prev) => [created, ...prev])
+        } else {
+          created = await createSeason(name)
+          setSeasons((prev) => [created, ...prev])
+        }
+
+        toast.success('Справочник обновлен')
       }
 
-      setReferenceName('')
-      toast.success('Справочник обновлен')
+      resetReferenceForm()
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Не удалось создать запись'
+      const message = error instanceof Error ? error.message : 'Не удалось сохранить справочник'
       toast.error(message)
     } finally {
+      setIsSavingReference(false)
       setCreatingReference(null)
     }
   }
@@ -284,7 +425,7 @@ export function AdminPage({
   }
 
   const handleDeleteReference = async (
-    type: 'category' | 'material' | 'style' | 'season',
+    type: ReferenceType,
     item: AdminOption,
   ) => {
     const confirmed = window.confirm(`Удалить "${item.name}"?`)
@@ -309,6 +450,9 @@ export function AdminPage({
         setSeasons((prev) => prev.filter((entry) => entry.id !== item.id))
       }
 
+      if (editingReferenceId === item.id) {
+        resetReferenceForm()
+      }
       toast.success('Элемент справочника удален')
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Не удалось удалить элемент'
@@ -391,10 +535,15 @@ export function AdminPage({
           </div>
         </div>
 
-        <Tabs defaultValue="orders" className="bg-white rounded-xl border border-gray-200">
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="bg-white rounded-xl border border-gray-200"
+        >
           <div className="border-b border-gray-200 px-6 overflow-x-auto">
             <TabsList className="bg-transparent">
               <TabsTrigger value="orders">Заказы</TabsTrigger>
+              <TabsTrigger value="analytics">Статистика</TabsTrigger>
               <TabsTrigger value="users">Пользователи</TabsTrigger>
               <TabsTrigger value="products">Товары</TabsTrigger>
               <TabsTrigger value="references">Справочники</TabsTrigger>
@@ -456,8 +605,9 @@ export function AdminPage({
                       <TableCell className="align-top">{order.total.toLocaleString('ru-RU')} ₽</TableCell>
                       <TableCell className="align-top">
                         <div className="space-y-2">
-                          <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
+                          
                           <select
+                            style={{ width: '110px' }}
                             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                             value={orderDrafts[order.id] || order.status}
                             onChange={(event) =>
@@ -487,6 +637,128 @@ export function AdminPage({
                 </TableBody>
               </Table>
             </div>
+          </TabsContent>
+
+          <TabsContent value="analytics" className="p-6 space-y-6">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-gray-900">Статистика продаж по моделям</h2>
+                <p className="text-sm text-gray-500">
+                  Выполненные заказы за {statsMonthLabel}
+                </p>
+              </div>
+              <Badge className="bg-amber-100 text-amber-900">
+                {monthlyCompletedOrders.length} заказов в выборке
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+              <div style={{padding: "10px"}} className="bg-gray-50 rounded-xl border border-gray-200 p-5">
+                <p className="text-sm text-gray-500 mb-1">Продано пар</p>
+                <p  className="text-3xl text-gray-900">{totalPairsSoldThisMonth}</p>
+              </div>
+              <div style={{padding: "10px"}} className="bg-gray-50 rounded-xl border border-gray-200 p-5">
+                <p className="text-sm text-gray-500 mb-1">Выручка по моделям</p>
+                <p className="text-3xl text-gray-900">
+                  {totalRevenueThisMonth.toLocaleString('ru-RU')} ₽
+                </p>
+              </div>
+              
+              <div style={{padding: "10px"}} className="bg-gray-50 rounded-xl border border-gray-200 p-5">
+                <p className="text-sm text-gray-500 mb-1">Рекордсмен месяца</p>
+                <p className="text-lg text-gray-900">
+                  {topModel ? topModel.productName : 'Пока нет данных'}
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {topModel ? `${topModel.quantity} пар` : 'Нет выполненных заказов'}
+                </p>
+              </div>
+            </div>
+
+            {monthlyModelStats.length === 0 ? (
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-8 text-center text-gray-500">
+                За текущий месяц пока нет выполненных заказов, поэтому статистика еще не сформирована.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  <div className="mb-4">
+                    <h3 className="text-gray-900">Доли продаж по моделям</h3>
+                    <p className="text-sm text-gray-500">
+                      Круговая диаграмма по количеству проданных пар
+                    </p>
+                  </div>
+
+                  <div className="h-80">
+                    {activeTab === 'analytics' && (
+                      <ResponsiveContainer
+                        key={chartData.map((item) => `${item.name}-${item.value}`).join('|')}
+                        width="100%"
+                        height="100%"
+                        minWidth={280}
+                        minHeight={280}
+                      >
+                        <PieChart>
+                          <Pie
+                            data={chartData}
+                            dataKey="value"
+                            nameKey="name"
+                            innerRadius={70}
+                            outerRadius={110}
+                            paddingAngle={2}
+                          >
+                            {chartData.map((entry, index) => (
+                              <Cell
+                                key={`${entry.name}-${index}`}
+                                fill={CHART_COLORS[index % CHART_COLORS.length]}
+                              />
+                            ))}
+                          </Pie>
+                          <RechartsTooltip
+                            formatter={(value: number) => [`${value} пар`, 'Продано']}
+                          />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  <div className="mb-4">
+                  
+                    <p className="text-sm text-gray-500">
+                      Топ моделей за текущий месяц
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    {monthlyModelStats.slice(0, 6).map((item, index) => (
+                      <div
+                        key={item.modelId}
+                        className="rounded-lg border border-gray-200 bg-gray-50 p-4"
+                      >
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <p className="text-sm text-gray-500">#{index + 1}</p>
+                            <p className="text-gray-900">{item.productName}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-gray-900">{item.quantity} пар</p>
+                            <p className="text-sm text-gray-500">
+                              {item.revenue.toLocaleString('ru-RU')} ₽
+                            </p>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Встречалась в {item.ordersCount} заказах
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="users" className="p-6">
@@ -743,44 +1015,73 @@ export function AdminPage({
           </TabsContent>
 
           <TabsContent value="references" className="p-6 space-y-6">
-            <div className="flex flex-col gap-4 md:flex-row">
-              <Input
-                placeholder="Название новой категории / стиля / сезона / материала"
-                value={referenceName}
-                onChange={(event) => setReferenceName(event.target.value)}
-                className="max-w-xl"
-              />
-              <div className="flex flex-wrap gap-3">
-                <Button
-                  className="bg-amber-700 hover:bg-amber-800"
-                  disabled={creatingReference === 'category'}
-                  onClick={() => void handleCreateReference('category')}
+            <form
+              onSubmit={(event) => void handleReferenceSubmit(event)}
+              className="grid grid-cols-1 gap-6 lg:grid-cols-2"
+            >
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-4">
+                  <h2 className="text-gray-900">
+                    {editingReferenceId ? 'Редактирование справочника' : 'Создание элемента справочника'}
+                  </h2>
+                  {editingReferenceId && (
+                    <Button type="button" variant="outline" onClick={resetReferenceForm}>
+                      Отменить редактирование
+                    </Button>
+                  )}
+                </div>
+
+                <select
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  value={referenceForm.type}
+                  disabled={!!editingReferenceId}
+                  onChange={(event) =>
+                    setReferenceForm((prev) => ({
+                      ...prev,
+                      type: event.target.value as ReferenceType,
+                    }))
+                  }
                 >
-                  Добавить категорию
-                </Button>
+                  <option value="category">Категория</option>
+                  <option value="material">Материал</option>
+                  <option value="style">Стиль</option>
+                  <option value="season">Сезон</option>
+                </select>
+
+                <Input
+                  placeholder="Название элемента справочника"
+                  value={referenceForm.name}
+                  onChange={(event) =>
+                    setReferenceForm((prev) => ({ ...prev, name: event.target.value }))
+                  }
+                />
+              </div>
+
+              <div className="space-y-4">
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+                  {editingReferenceId
+                    ? 'Измените название выбранного элемента и сохраните изменения.'
+                    : 'Выберите тип справочника, укажите название и создайте новый элемент.'}
+                </div>
+
                 <Button
-                  variant="outline"
-                  disabled={creatingReference === 'material'}
-                  onClick={() => void handleCreateReference('material')}
+                  type="submit"
+                  className="w-full bg-amber-700 hover:bg-amber-800"
+                  disabled={
+                    isSavingReference ||
+                    creatingReference === referenceForm.type
+                  }
                 >
-                  Добавить материал
-                </Button>
-                <Button
-                  variant="outline"
-                  disabled={creatingReference === 'style'}
-                  onClick={() => void handleCreateReference('style')}
-                >
-                  Добавить стиль
-                </Button>
-                <Button
-                  variant="outline"
-                  disabled={creatingReference === 'season'}
-                  onClick={() => void handleCreateReference('season')}
-                >
-                  Добавить сезон
+                  {isSavingReference
+                    ? editingReferenceId
+                      ? 'Сохраняем справочник...'
+                      : 'Создаем элемент...'
+                    : editingReferenceId
+                      ? 'Сохранить изменения'
+                      : 'Создать элемент'}
                 </Button>
               </div>
-            </div>
+            </form>
 
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
               {[
@@ -801,15 +1102,24 @@ export function AdminPage({
                           className="rounded-md bg-white px-3 py-2 border border-gray-200 flex items-center justify-between gap-3"
                         >
                           <span className="text-sm text-gray-600">{item.name}</span>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
-                            disabled={deletingReferenceKey === key}
-                            onClick={() => void handleDeleteReference(group.type, item)}
-                          >
-                            {deletingReferenceKey === key ? '...' : 'Удалить'}
-                          </Button>
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEditReference(group.type, item)}
+                            >
+                              Изменить
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                              disabled={deletingReferenceKey === key}
+                              onClick={() => void handleDeleteReference(group.type, item)}
+                            >
+                              {deletingReferenceKey === key ? '...' : 'Удалить'}
+                            </Button>
+                          </div>
                         </div>
                       )
                     })}

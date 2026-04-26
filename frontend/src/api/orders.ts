@@ -4,6 +4,7 @@ const API_BASE_URL = 'http://localhost:3001'
 
 export interface CreateOrderPayload {
   deliveryAddress: string
+  bonusPointsToSpend?: number
   items: Array<{
     modelId: string
     size: number
@@ -41,6 +42,7 @@ interface BackendOrder {
   status: string
   deliveryAddress: string
   totalAmount: number | string
+  bonusPointsSpent?: number | string
   orderItems: BackendOrderItem[]
   user?: BackendOrderUser
 }
@@ -60,6 +62,7 @@ export interface FrontendOrder {
   status: string
   deliveryAddress: string
   total: number
+  bonusPointsSpent: number
   isActive: boolean
   items: FrontendOrderItem[]
   customer: {
@@ -88,6 +91,7 @@ function transformOrder(order: BackendOrder): FrontendOrder {
     status: order.status,
     deliveryAddress: order.deliveryAddress,
     total: Number(order.totalAmount),
+    bonusPointsSpent: Number(order.bonusPointsSpent || 0),
     isActive: isActiveStatus(order.status),
     customer: order.user
       ? {

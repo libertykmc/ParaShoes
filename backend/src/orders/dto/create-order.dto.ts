@@ -3,6 +3,7 @@ import {
   IsArray,
   IsInt,
   IsNumber,
+  IsOptional,
   IsString,
   IsUUID,
   Max,
@@ -37,6 +38,12 @@ export class CreateOrderDto {
   @ApiProperty({ example: 'г. Москва, ул. Ленина, д. 10, кв. 5' })
   @IsString()
   deliveryAddress: string
+
+  @ApiProperty({ example: 300, required: false, description: 'Количество бонусов к списанию' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  bonusPointsToSpend?: number
 
   @ApiProperty({ type: [CreateOrderItemDto] })
   @IsArray()

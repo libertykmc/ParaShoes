@@ -3,8 +3,8 @@ import { Filter } from 'lucide-react'
 import { Button } from './ui/button'
 import { ProductCard } from './ProductCard'
 import { Checkbox } from './ui/checkbox'
+import { Input } from './ui/input'
 import { Label } from './ui/label'
-import { Slider } from './ui/slider'
 import {
   Sheet,
   SheetContent,
@@ -60,7 +60,8 @@ export function CatalogPage({
   const [selectedStyles, setSelectedStyles] = useState<string[]>([])
   const [selectedSeasons, setSelectedSeasons] = useState<string[]>([])
   const [selectedSizes, setSelectedSizes] = useState<number[]>([])
-  const [priceRange, setPriceRange] = useState<number[]>([0, 30000])
+  const [priceFrom, setPriceFrom] = useState('')
+  const [priceTo, setPriceTo] = useState('')
 
   const categories = useMemo(
     () => buildFilterOptions(products, 'categoryId', 'category'),
@@ -91,6 +92,10 @@ export function CatalogPage({
 
     return Array.from(uniqueSizes).sort((left, right) => left - right)
   }, [products])
+  const maxProductPrice = useMemo(
+    () => products.reduce((max, product) => Math.max(max, product.price), 0),
+    [products],
+  )
 
   const toggleFilter = (
     value: string,
@@ -105,6 +110,9 @@ export function CatalogPage({
   }
 
   const filteredProducts = products.filter((product) => {
+    const minPrice = priceFrom ? Number(priceFrom) : null
+    const maxPrice = priceTo ? Number(priceTo) : null
+
     if (
       selectedCategories.length > 0 &&
       (!product.categoryId || !selectedCategories.includes(product.categoryId))
@@ -142,7 +150,11 @@ export function CatalogPage({
       return false
     }
 
-    if (product.price < priceRange[0] || product.price > priceRange[1]) {
+    if (minPrice !== null && !Number.isNaN(minPrice) && product.price < minPrice) {
+      return false
+    }
+
+    if (maxPrice !== null && !Number.isNaN(maxPrice) && product.price > maxPrice) {
       return false
     }
 
@@ -155,7 +167,8 @@ export function CatalogPage({
     setSelectedStyles([])
     setSelectedSeasons([])
     setSelectedSizes([])
-    setPriceRange([0, 30000])
+    setPriceFrom('')
+    setPriceTo('')
   }
 
   const FilterPanel = () => (
@@ -271,17 +284,29 @@ export function CatalogPage({
 
       <div>
         <h4 className="text-gray-900 mb-3">Цена</h4>
-        <Slider
-          min={0}
-          max={30000}
-          step={1000}
-          value={priceRange}
-          onValueChange={setPriceRange}
-          className="mb-2"
-        />
-        <div className="flex items-center justify-between text-sm text-gray-600">
-          <span>{priceRange[0].toLocaleString('ru-RU')} ₽</span>
-          <span>{priceRange[1].toLocaleString('ru-RU')} ₽</span>
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            type="number"
+            min="0"
+            step="100"
+            inputMode="numeric"
+            placeholder="От"
+            value={priceFrom}
+            onChange={(event) => setPriceFrom(event.target.value)}
+          />
+          <Input
+            type="number"
+            min="0"
+            step="100"
+            inputMode="numeric"
+            placeholder="До"
+            value={priceTo}
+            onChange={(event) => setPriceTo(event.target.value)}
+          />
+        </div>
+        <div className="mt-2 flex items-center justify-between text-sm text-gray-600">
+          <span>От 0 ₽</span>
+          <span>До {maxProductPrice.toLocaleString('ru-RU')} ₽</span>
         </div>
       </div>
     </div>
